@@ -1,16 +1,24 @@
 import { useState } from "react";
 import { sendMagicLink } from "../collab/auth";
 
+const ALLOWED_DOMAIN = "people10.com";
+
 /** Modal that sends a passwordless magic-link. Shown when the user tries to
- *  collaborate without a session. */
+ *  collaborate without a session. Restricted to @people10.com emails (the real
+ *  enforcement is server-side via RLS; this is a fast, friendly pre-check). */
 export function AuthGate({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [error, setError] = useState("");
 
   const send = async () => {
-    const e = email.trim();
+    const e = email.trim().toLowerCase();
     if (!e) return;
+    if (!e.endsWith(`@${ALLOWED_DOMAIN}`)) {
+      setError(`Only @${ALLOWED_DOMAIN} email addresses can collaborate.`);
+      setStatus("error");
+      return;
+    }
     setStatus("sending");
     try {
       await sendMagicLink(e);
@@ -35,7 +43,8 @@ export function AuthGate({ onClose }: { onClose: () => void }) {
         ) : (
           <>
             <p className="modal-body">
-              Live collaboration requires a verified email. We'll send you a one-time sign-in link — no password.
+              Live collaboration is limited to People10. Enter your <strong>@{ALLOWED_DOMAIN}</strong> email
+              and we'll send a one-time sign-in link — no password.
             </p>
             <input
               className="detail-input modal-input"

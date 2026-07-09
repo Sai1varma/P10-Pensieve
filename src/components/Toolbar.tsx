@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useReactFlow } from "@xyflow/react";
 import { useBoard, parseImported } from "../board/store";
 import { toMarkdown, downloadText, buildShareUrl } from "../board/io";
@@ -134,6 +134,17 @@ export function Toolbar({
 
   const filterActive = !!filter.status || !!filter.tag;
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close the More menu on any click/tap outside it.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [menuOpen]);
 
   return (
     <header className="toolbar">
@@ -226,7 +237,7 @@ export function Toolbar({
       <button className="tbtn" onClick={onPresent} title="Step through pillars">
         ▶ Present
       </button>
-      <div className="menu" onMouseLeave={() => setMenuOpen(false)}>
+      <div className="menu" ref={menuRef}>
         <button className="tbtn" onClick={() => setMenuOpen((o) => !o)} title="More actions">
           More ▾
         </button>

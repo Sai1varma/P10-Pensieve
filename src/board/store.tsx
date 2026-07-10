@@ -251,7 +251,6 @@ export type Action =
   | { type: "delete"; id: ID }
   | { type: "toggleCollapse"; id: ID }
   | { type: "expandTo"; id: ID }
-  | { type: "expandSubtree"; id: ID }
   | { type: "expandAll" }
   | { type: "collapseAll" }
   | { type: "collapseToDepth"; depth: number }
@@ -393,16 +392,6 @@ function reducer(state: Board, action: Action): Board {
         if (blocks[cur.id].collapsed) blocks[cur.id] = { ...blocks[cur.id], collapsed: false };
         cur = cur.parentId ? state.blocks[cur.parentId] : undefined;
       }
-      return { ...state, blocks };
-    }
-
-    case "expandSubtree": {
-      // Expand this node and every descendant (used by Present mode, so a
-      // whole pillar's branch is visible, not just its direct children).
-      const ids = new Set(descendantIds(state.blocks, action.id));
-      const blocks: Record<ID, Block> = {};
-      for (const [id, b] of Object.entries(state.blocks))
-        blocks[id] = ids.has(id) && b.collapsed ? { ...b, collapsed: false } : b;
       return { ...state, blocks };
     }
 

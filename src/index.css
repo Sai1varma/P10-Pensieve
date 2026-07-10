@@ -510,6 +510,20 @@ body {
   filter: brightness(1.04);
   box-shadow: var(--shadow);
 }
+/* Invisible bridge over the gap between the card and its floating
+   .node-actions toolbar (which sits 6px above via bottom: calc(100% + 6px)).
+   Without this, moving the cursor from the card up to the toolbar crosses a
+   dead zone with no hoverable element, so .node:hover drops and the toolbar
+   hides itself before the click lands. A pseudo-element is still "part of"
+   .node for :hover purposes, so this keeps hover continuous through the gap. */
+.node::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 6px;
+}
 .node-selected {
   outline: 3px solid var(--accent);
   outline-offset: 2px;

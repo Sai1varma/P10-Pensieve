@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useReactFlow } from "@xyflow/react";
-import { useBoard } from "../board/store";
+import { useBoard, descendantIds } from "../board/store";
 
 /** Full-screen step-through of the top-level pillars for review meetings. */
 export function Present({ onExit }: { onExit: () => void }) {
@@ -18,12 +18,12 @@ export function Present({ onExit }: { onExit: () => void }) {
     (idx: number) => {
       const id = pillars[idx];
       if (!id) return;
-      dispatch({ type: "expandTo", id }); // expand the pillar + ancestors
-      const kids = board.blocks[id]?.childIds ?? [];
+      dispatch({ type: "expandSubtree", id }); // reveal the pillar's whole branch, not just its direct children
+      const branch = descendantIds(board.blocks, id);
       setTimeout(
         () =>
           fitView({
-            nodes: [{ id }, ...kids.map((k) => ({ id: k }))],
+            nodes: branch.map((b) => ({ id: b })),
             duration: 600,
             padding: 0.35,
             maxZoom: 1.3,

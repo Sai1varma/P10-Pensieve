@@ -22,7 +22,7 @@ import {
   visibleIds,
 } from "./deriveGraph";
 import { BlockNode, type BlockNodeData } from "./BlockNode";
-import type { ViewFilter } from "../board/types";
+import type { Board, ViewFilter } from "../board/types";
 
 const nodeTypes: NodeTypes = { block: BlockNode };
 
@@ -55,6 +55,34 @@ function makeData(
   };
 }
 
+/** Detects a plain single-node expand/collapse between two board snapshots:
+ *  same set of block ids, exactly one node's `collapsed` flag flipped, and
+ *  the tree shape (rootId, parent/child structure) is otherwise identical.
+ *  Bulk operations (expand all, add/delete, import, remote sync, etc.)
+ *  naturally fail this check and fall back to the whole-tree fit. */
+function detectToggleFocus(
+  prev: Board | null,
+  board: Board
+): { id: string; mode: "expand" | "collapse" } | null {
+  if (!prev || prev.rootId !== board.rootId) return null;
+  const prevIds = Object.keys(prev.blocks);
+  const nextIds = Object.keys(board.blocks);
+  if (prevIds.length !== nextIds.length) return null;
+  let changed: string | null = null;
+  for (const id of nextIds) {
+    const a = prev.blocks[id];
+    const b = board.blocks[id];
+    if (!a) return null; // a node was added/removed -> not a plain toggle
+    if (a.collapsed !== b.collapsed) {
+      if (changed) return null; // more than one flag changed -> bulk op
+      changed = id;
+    } else if (a.childIds.length !== b.childIds.length || a.parentId !== b.parentId) {
+      return null; // structural change beyond collapse -> not a plain toggle
+    }
+  }
+  return changed ? { id: changed, mode: board.blocks[changed].collapsed ? "collapse" : "expand" } : null;
+}
+
 export function Canvas({
   onNodeFocus,
   query = "",
@@ -69,6 +97,10 @@ export function Canvas({
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const lastSig = useRef<string | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  // Previous board, used only to detect a single node's collapsed flag
+  // flipping (a plain expand/collapse) so the camera can focus on just that
+  // node's new context instead of always fitting the whole tree.
+  const prevBoardRef = useRef<Board | null>(null);
 
   // Search/filter matcher. `active` when any query or filter is set.
   const view: View = useMemo(() => {
@@ -127,6 +159,8 @@ export function Canvas({
 
   // Structure changed -> re-flow (dagre) + animate camera. Otherwise just refresh data.
   useEffect(() => {
+    const prevBoard = prevBoardRef.current;
+    prevBoardRef.current = board;
     const sig = structureSignature(board);
     if (sig !== lastSig.current) {
       const isInitial = lastSig.current === null;
@@ -162,7 +196,28 @@ export function Canvas({
       // animate node motion, then fit the camera
       wrapRef.current?.classList.add("animating");
       window.setTimeout(() => wrapRef.current?.classList.remove("animating"), 380);
-      runFit();
+
+      // If this structure change is exactly one node's collapsed flag
+      // flipping (a plain expand/collapse, from the card button or the Space
+      // shortcut) -- and nothing else about the tree changed -- focus the
+      // camera on just that node's new context instead of the whole board.
+      const focus = detectToggleFocus(prevBoard, board);
+      if (focus) {
+        const ids =
+          focus.mode === "expand"
+            ? [focus.id, ...(board.blocks[focus.id]?.childIds ?? [])]
+            : (() => {
+                const parentId = board.blocks[focus.id]?.parentId;
+                const parent = parentId ? board.blocks[parentId] : null;
+                return parent ? [parentId as string, ...parent.childIds] : [focus.id];
+              })();
+        setTimeout(
+          () => fitView({ nodes: ids.map((id) => ({ id })), duration: 500, padding: 0.35, maxZoom: 1.3 }),
+          30
+        );
+      } else {
+        runFit();
+      }
     } else {
       // Data-only change (text/color) -> keep positions, refresh node data.
       // Also adopt each node's board-stored x/y here: a no-op for ordinary
@@ -177,7 +232,7 @@ export function Canvas({
         })
       );
     }
-  }, [board, dispatch, setNodes, runFit, view]);
+  }, [board, dispatch, setNodes, runFit, fitView, view]);
 
   const onNodeDragStop = useCallback<OnNodeDrag>(
     (_e, node) => {

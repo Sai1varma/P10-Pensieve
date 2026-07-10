@@ -12,9 +12,9 @@ function isTyping(): boolean {
 
 /**
  * Global keyboard shortcuts. Mounted inside the providers; renders nothing.
- * - Ctrl/Cmd+Z / Shift+Z: undo / redo
- * - With a focused node (panel open): Tab add child, Enter add sibling,
- *   Delete remove, Space toggle collapse.
+ * - Ctrl/Cmd+Z / Shift+Z (or Ctrl+Y): undo / redo
+ * - With a focused node (panel open) and not typing: Delete removes it,
+ *   Space toggles collapse. (Enter/Tab intentionally do NOT create blocks.)
  */
 export function Shortcuts({
   focusedId,
@@ -49,18 +49,7 @@ export function Shortcuts({
       if (!node) return;
 
       switch (e.key) {
-        case "Tab":
-          e.preventDefault();
-          dispatch({ type: "addChild", parentId: focusedId });
-          break;
-        case "Enter":
-          if (node.parentId != null) {
-            e.preventDefault();
-            dispatch({ type: "addSibling", siblingId: focusedId });
-          }
-          break;
         case "Delete":
-        case "Backspace":
           if (node.parentId != null) {
             e.preventDefault();
             const kids = node.childIds.length;

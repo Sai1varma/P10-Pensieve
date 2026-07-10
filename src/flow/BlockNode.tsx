@@ -123,7 +123,6 @@ function BlockNodeImpl({ data, selected }: NodeProps) {
 
       <div
         className="node-actions nodrag"
-        style={{ color: d.color ? fg : "var(--muted)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <button

@@ -137,7 +137,7 @@ export function useCollab(): CollabState {
       const updated_at = new Date().toISOString();
       lastRemoteRef.current = updated_at;
       await sb.from("boards").update({ data: board, updated_at }).eq("id", boardId);
-    }, 400);
+    }, 150);
     return () => {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
     };

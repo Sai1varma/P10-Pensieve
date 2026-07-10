@@ -164,9 +164,17 @@ export function Canvas({
       window.setTimeout(() => wrapRef.current?.classList.remove("animating"), 380);
       runFit();
     } else {
-      // data-only change (text/color) -> keep positions, refresh node data
+      // Data-only change (text/color) -> keep positions, refresh node data.
+      // Also adopt each node's board-stored x/y here: a no-op for ordinary
+      // local edits (board already matches what's on screen), but this is
+      // what picks up a node a collaborator dragged elsewhere without
+      // forcing a full Dagre re-layout + camera animation for everyone.
       setNodes((nds) =>
-        nds.map((n) => ({ ...n, data: makeData(board, n.id, view) }))
+        nds.map((n) => {
+          const b = board.blocks[n.id];
+          const stored = b && b.x != null && b.y != null ? { x: b.x, y: b.y } : null;
+          return { ...n, data: makeData(board, n.id, view), position: stored ?? n.position };
+        })
       );
     }
   }, [board, dispatch, setNodes, runFit, view]);

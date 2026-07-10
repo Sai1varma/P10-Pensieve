@@ -1,12 +1,25 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useReducer,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
-import { STORAGE_KEY, nextCategoryColor, type Block, type Board, type ID } from "./types";
+import {
+  ACTIVE_KEY,
+  INDEX_KEY,
+  STORAGE_KEY,
+  boardContentKey,
+  newBoardId,
+  nextCategoryColor,
+  type Block,
+  type Board,
+  type BoardIndexEntry,
+  type ID,
+} from "./types";
 
 // ---------- helpers ----------
 
@@ -103,19 +116,6 @@ function migrate(parsed: any): Board | null {
   return null;
 }
 
-function loadBoard(): Board {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const b = migrate(JSON.parse(raw));
-      if (b) return b;
-    }
-  } catch {
-    /* ignore corrupt storage */
-  }
-  return seedBoard();
-}
-
 export function isValidBoard(x: unknown): x is Board {
   if (!x || typeof x !== "object") return false;
   const b = x as Partial<Board>;
@@ -138,6 +138,103 @@ export function isValidBoard(x: unknown): x is Board {
 /** Accept v1/v2/v3 on import; returns a migrated v3 board or null. */
 export function parseImported(x: unknown): Board | null {
   return migrate(x);
+}
+
+// ---------- multi-board registry ----------
+
+function loadBoardContent(id: ID): Board {
+  try {
+    const raw = localStorage.getItem(boardContentKey(id));
+    if (raw) {
+      const b = migrate(JSON.parse(raw));
+      if (b) return b;
+    }
+  } catch {
+    /* ignore corrupt storage */
+  }
+  return seedBoard();
+}
+
+function persistIndex(index: BoardIndexEntry[]) {
+  try {
+    localStorage.setItem(INDEX_KEY, JSON.stringify(index));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+/** Writes `board` under its own key, and creates a fresh, unsynced index entry for it. */
+function freshBoardEntry(board: Board): { entry: BoardIndexEntry; id: ID } {
+  const id = newBoardId();
+  const now = new Date().toISOString();
+  localStorage.setItem(boardContentKey(id), JSON.stringify(board));
+  const entry: BoardIndexEntry = {
+    id,
+    name: board.blocks[board.rootId]?.text || "Board",
+    manualName: false,
+    createdAt: now,
+    updatedAt: now,
+    cloudStatus: "local",
+    ownerEmail: null,
+  };
+  return { entry, id };
+}
+
+/** One-time migration from the legacy single-board key to the multi-board
+ *  registry. Guarded: only ever builds a fresh registry when none exists yet
+ *  (or is corrupt/empty), so it can never clobber real data. The legacy key
+ *  is left in place afterward — nothing reads it again, but it's cheap insurance. */
+function migrateToIndex(): BoardIndexEntry[] {
+  try {
+    const raw = localStorage.getItem(INDEX_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed as BoardIndexEntry[];
+    }
+  } catch {
+    /* fall through to rebuild */
+  }
+  let legacyBoard: Board | null = null;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) legacyBoard = migrate(JSON.parse(raw));
+  } catch {
+    /* ignore corrupt storage */
+  }
+  const { entry, id } = freshBoardEntry(legacyBoard ?? seedBoard());
+  const index = [entry];
+  persistIndex(index);
+  localStorage.setItem(ACTIVE_KEY, id);
+  return index;
+}
+
+/** Persists `board` under `id`'s key and bumps its index entry (name — unless
+ *  manually renamed — and updatedAt). Returns whether the write succeeded. */
+function persistBoardContent(
+  id: ID,
+  board: Board,
+  setIndex: React.Dispatch<React.SetStateAction<BoardIndexEntry[]>>
+): boolean {
+  try {
+    localStorage.setItem(boardContentKey(id), JSON.stringify(board));
+  } catch {
+    return false;
+  }
+  setIndex((idx) => {
+    const i = idx.findIndex((e) => e.id === id);
+    if (i === -1) return idx;
+    const entry = idx[i];
+    const rootText = board.blocks[board.rootId]?.text || entry.name;
+    const next = [...idx];
+    next[i] = {
+      ...entry,
+      name: entry.manualName ? entry.name : rootText,
+      updatedAt: new Date().toISOString(),
+    };
+    persistIndex(next);
+    return next;
+  });
+  return true;
 }
 
 // ---------- reducer ----------
@@ -377,7 +474,17 @@ interface History {
   future: Board[];
 }
 
-function historyReducer(state: History, action: Action): History {
+/** `loadBoard` swaps the active board wholesale (switching boards) and resets
+ *  history — undo must never cross a board switch. It's a history-layer-only
+ *  action: it never reaches `reducer()` and is never exposed in the public
+ *  `Action` union, so none of the existing dispatch call sites need to know
+ *  about it. */
+type HistoryAction = Action | { type: "loadBoard"; board: Board };
+
+function historyReducer(state: History, action: HistoryAction): History {
+  if (action.type === "loadBoard") {
+    return { past: [], present: action.board, future: [] };
+  }
   if (action.type === "undo") {
     if (state.past.length === 0) return state;
     const previous = state.past[state.past.length - 1];
@@ -418,40 +525,197 @@ interface Store {
   canUndo: boolean;
   canRedo: boolean;
   saved: boolean;
+
+  boards: BoardIndexEntry[];
+  currentBoardId: ID;
+  createBoard: (name?: string) => ID;
+  switchBoard: (id: ID) => void;
+  renameBoard: (id: ID, name: string) => void;
+  duplicateBoard: (id: ID) => ID;
+  deleteBoard: (id: ID, opts: { alsoDeleteShared: boolean }) => void;
+  /** Merge point for the cloud index hook's sign-in reconcile / realtime feed. */
+  setBoardsFromRemote: (rows: BoardIndexEntry[]) => void;
+  markBoardCloudStatus: (id: ID, status: BoardIndexEntry["cloudStatus"], ownerEmail?: string) => void;
 }
 
 const BoardContext = createContext<Store | null>(null);
 
 export function BoardProvider({ children }: { children: ReactNode }) {
+  const [index, setIndex] = useState<BoardIndexEntry[]>(() => migrateToIndex());
+  const [currentBoardId, setCurrentBoardId] = useState<ID>(
+    () => localStorage.getItem(ACTIVE_KEY) ?? index[0].id
+  );
+
   const [state, dispatch] = useReducer(historyReducer, undefined, () => ({
     past: [],
-    present: loadBoard(),
+    present: loadBoardContent(currentBoardId),
     future: [],
   }));
   const board = state.present;
   const [saved, setSaved] = useState(true);
 
+  // Tracks which board id the reducer's `board` currently reflects, so the
+  // "swap active board" effect below only fires on an actual switch.
+  const loadedIdRef = useRef(currentBoardId);
+  // True whenever `board` has unsaved edits not yet flushed to localStorage.
+  const dirtyRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
+    if (loadedIdRef.current === currentBoardId) return;
+    loadedIdRef.current = currentBoardId;
+    dispatch({ type: "loadBoard", board: loadBoardContent(currentBoardId) });
+  }, [currentBoardId]);
+
+  // Debounced persistence. Deliberately keyed only on `board` (not
+  // `currentBoardId`): when switchBoard() changes currentBoardId, `board`
+  // itself doesn't change until the effect above's dispatch takes effect on
+  // a later render — so this effect correctly skips the in-between render
+  // where currentBoardId already points at the new board but `board` still
+  // holds the old board's content (which would otherwise get written under
+  // the new board's key).
+  useEffect(() => {
+    dirtyRef.current = true;
     setSaved(false);
-    const t = setTimeout(() => {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(board));
+    const id = currentBoardId;
+    saveTimerRef.current = setTimeout(() => {
+      if (persistBoardContent(id, board, setIndex)) {
+        dirtyRef.current = false;
         setSaved(true);
-      } catch {
-        /* storage unavailable */
       }
     }, 250);
-    return () => clearTimeout(t);
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [board]);
+
+  const switchBoard = useCallback(
+    (id: ID) => {
+      if (id === currentBoardId) return;
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      if (dirtyRef.current) {
+        if (persistBoardContent(currentBoardId, board, setIndex)) dirtyRef.current = false;
+      }
+      localStorage.setItem(ACTIVE_KEY, id);
+      setCurrentBoardId(id);
+    },
+    [currentBoardId, board]
+  );
+
+  const createBoard = useCallback((name?: string): ID => {
+    const { entry, id } = freshBoardEntry(seedBoard());
+    const trimmed = name?.trim();
+    const finalEntry = trimmed ? { ...entry, name: trimmed, manualName: true } : entry;
+    setIndex((idx) => {
+      const next = [...idx, finalEntry];
+      persistIndex(next);
+      return next;
+    });
+    localStorage.setItem(ACTIVE_KEY, id);
+    setCurrentBoardId(id);
+    return id;
+  }, []);
+
+  const renameBoard = useCallback((id: ID, name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setIndex((idx) => {
+      const next = idx.map((e) =>
+        e.id === id ? { ...e, name: trimmed, manualName: true, updatedAt: new Date().toISOString() } : e
+      );
+      persistIndex(next);
+      return next;
+    });
+  }, []);
+
+  const duplicateBoard = useCallback(
+    (id: ID): ID => {
+      const content = loadBoardContent(id);
+      const cloned: Board = JSON.parse(JSON.stringify(content));
+      const source = index.find((e) => e.id === id);
+      const { entry, id: newId } = freshBoardEntry(cloned);
+      const named: BoardIndexEntry = { ...entry, name: `${source?.name ?? "Board"} copy`, manualName: true };
+      setIndex((idx) => {
+        const next = [...idx, named];
+        persistIndex(next);
+        return next;
+      });
+      return newId;
+    },
+    [index]
+  );
+
+  const deleteBoard = useCallback(
+    // alsoDeleteShared is consumed by the caller (BoardSwitcher -> useBoardIndex),
+    // which deletes the cloud row separately — store.tsx stays Supabase-unaware.
+    (id: ID, _opts: { alsoDeleteShared: boolean }) => {
+      setIndex((idx) => {
+        let next = idx.filter((e) => e.id !== id);
+        if (next.length === 0) {
+          const { entry } = freshBoardEntry(seedBoard());
+          next = [entry];
+        }
+        persistIndex(next);
+        if (id === currentBoardId) {
+          const fallback = next[0].id;
+          localStorage.setItem(ACTIVE_KEY, fallback);
+          setCurrentBoardId(fallback);
+        }
+        return next;
+      });
+      localStorage.removeItem(boardContentKey(id));
+    },
+    [currentBoardId]
+  );
+
+  const setBoardsFromRemote = useCallback((rows: BoardIndexEntry[]) => {
+    setIndex((idx) => {
+      const byId = new Map(idx.map((e) => [e.id, e] as const));
+      for (const row of rows) {
+        const local = byId.get(row.id);
+        if (!local) {
+          byId.set(row.id, row);
+        } else if (new Date(row.updatedAt) > new Date(local.updatedAt)) {
+          byId.set(row.id, { ...local, ...row, manualName: local.manualName });
+        }
+      }
+      const next = Array.from(byId.values());
+      persistIndex(next);
+      return next;
+    });
+  }, []);
+
+  const markBoardCloudStatus = useCallback(
+    (id: ID, status: BoardIndexEntry["cloudStatus"], ownerEmail?: string) => {
+      setIndex((idx) => {
+        const next = idx.map((e) =>
+          e.id === id ? { ...e, cloudStatus: status, ownerEmail: ownerEmail ?? e.ownerEmail } : e
+        );
+        persistIndex(next);
+        return next;
+      });
+    },
+    []
+  );
 
   return (
     <BoardContext.Provider
       value={{
         board,
-        dispatch,
+        dispatch: dispatch as React.Dispatch<Action>,
         canUndo: state.past.length > 0,
         canRedo: state.future.length > 0,
         saved,
+        boards: index,
+        currentBoardId,
+        createBoard,
+        switchBoard,
+        renameBoard,
+        duplicateBoard,
+        deleteBoard,
+        setBoardsFromRemote,
+        markBoardCloudStatus,
       }}
     >
       {children}

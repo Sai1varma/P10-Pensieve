@@ -73,6 +73,30 @@ export const PALETTE: { name: string; value: string }[] = [
 export const STORAGE_KEY = "block-board-v2";
 export const THEME_KEY = "blockboard-theme";
 
+/** Multi-board registry: list of boards + which one is active. Board content
+ *  itself lives under its own `boardContentKey(id)`, not in the index. */
+export const INDEX_KEY = "blockboard-index";
+export const ACTIVE_KEY = "blockboard-active";
+export const boardContentKey = (id: ID): string => `blockboard-board-${id}`;
+
+/** Board-level ids must be real UUIDs (Supabase `id uuid primary key`),
+ *  unlike block/member ids (see uid() in store.tsx) which never leave the client. */
+export const newBoardId = (): ID => crypto.randomUUID();
+
+/** Lightweight metadata for one board in the local registry; mirrors (a subset
+ *  of) the Supabase `boards` row when signed in. Content lives separately. */
+export interface BoardIndexEntry {
+  id: ID;
+  name: string;
+  /** True once the user renames via the switcher; freezes auto-derive-from-root-text. */
+  manualName: boolean;
+  createdAt: string;
+  updatedAt: string;
+  /** local = no cloud row; draft = cloud row with data IS NULL; live = data populated. */
+  cloudStatus: "local" | "draft" | "live";
+  ownerEmail: string | null;
+}
+
 /* ---------- generated color engine ----------
  * Top-level categories draw unique, well-separated colors from an effectively
  * unlimited palette (golden-angle hue spacing). Descendants inherit their

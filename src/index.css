@@ -278,6 +278,86 @@ body {
   background: var(--edge);
   margin: 4px 2px;
 }
+
+/* ---------- board switcher ---------- */
+.board-menu-list {
+  /* The switcher sits near the left of the toolbar (unlike the right-aligned
+     "More" menu this class is shared with), so open it to the right of the
+     trigger instead of overhanging left into the floating collab bar. */
+  left: 0;
+  right: auto;
+  min-width: 260px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.board-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 8px;
+}
+.board-row:hover,
+.board-row.active {
+  background: var(--surface);
+}
+.board-row-name {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.board-row-actions {
+  display: flex;
+  gap: 2px;
+  padding-right: 6px;
+}
+.board-row-actions button {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 12px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.board-row-actions button:hover {
+  background: var(--edge);
+  color: var(--text);
+}
+.board-row-actions button.danger:hover {
+  color: #ef4444;
+}
+.board-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+  flex: none;
+}
+.board-status-dot.local {
+  background: var(--muted);
+}
+.board-status-dot.draft {
+  background: var(--accent);
+  opacity: 0.5;
+}
+.board-status-dot.live {
+  background: #059669;
+}
+
 .present-bar {
   position: absolute;
   left: 50%;

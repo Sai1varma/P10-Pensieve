@@ -1,4 +1,4 @@
-# AGENTS.md — P10 Pensieve
+# CLAUDE.md — P10 Pensieve
 
 Context for AI coding agents working on this repo. Read this before modifying code.
 

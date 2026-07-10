@@ -3,6 +3,7 @@ import { useReactFlow } from "@xyflow/react";
 import { useBoard, parseImported } from "../board/store";
 import { toMarkdown, downloadText, buildShareUrl } from "../board/io";
 import { STATUS_META, STATUS_ORDER, type Theme, type ViewFilter } from "../board/types";
+import { BoardSwitcher } from "./BoardSwitcher";
 
 export function Toolbar({
   theme,
@@ -149,6 +150,7 @@ export function Toolbar({
   return (
     <header className="toolbar">
       <h1 className="brand">P10 Pensieve</h1>
+      <BoardSwitcher />
       <span className={`save-dot${saved ? " saved" : ""}`} title={saved ? "All changes saved" : "Saving…"}>
         {saved ? "Saved" : "Saving…"}
       </span>
@@ -244,7 +246,7 @@ export function Toolbar({
         {menuOpen && (
           <div className="menu-list" role="menu">
             <button className="menu-item" onClick={() => { copyShareLink(); setMenuOpen(false); }}>
-              Share link
+              Export as link
             </button>
             <div className="menu-sep" />
             <button className="menu-item" onClick={() => { exportJson(); setMenuOpen(false); }}>

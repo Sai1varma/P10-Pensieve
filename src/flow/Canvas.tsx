@@ -122,7 +122,7 @@ export function Canvas({
 
   const runFit = useCallback(() => {
     // let React commit the new nodes first, then animate the camera
-    setTimeout(() => fitView({ duration: 500, padding: 0.2, maxZoom: 1.2 }), 30);
+    setTimeout(() => fitView({ duration: 500, padding: 0.15, maxZoom: 1.2, minZoom: 0.05 }), 30);
   }, [fitView]);
 
   // Structure changed -> re-flow (dagre) + animate camera. Otherwise just refresh data.
@@ -200,7 +200,7 @@ export function Canvas({
         onNodeDragStop={onNodeDragStop}
         onNodeClick={(_e, node) => onNodeFocus(node.id)}
         fitView
-        minZoom={0.2}
+        minZoom={0.05}
         maxZoom={2}
         onlyRenderVisibleElements
         proOptions={{ hideAttribution: true }}

@@ -3,18 +3,18 @@ import { useReactFlow } from "@xyflow/react";
 import { useBoard } from "../board/store";
 import type { Board, ID } from "../board/types";
 
+type WalkMode = "depth" | "breadth";
+
 interface Step {
   id: ID;
   depth: number; // 1 = top-level pillar, 2 = its children, etc.
 }
 
-/** Flatten the tree into pre-order steps: a node's children are visited
- *  immediately after it (before its next sibling), so stepping through with
- *  Next naturally descends into deeper levels instead of only ever cycling
- *  the top-level pillars. Root itself is excluded -- presentation starts at
- *  the pillars. Order matches the canvas (top-to-bottom by y), not raw
+/** Depth-first order: a node's children are visited immediately after it,
+ *  before its next sibling. Root itself is excluded -- presentation starts
+ *  at the pillars. Order matches the canvas (top-to-bottom by y), not raw
  *  childIds order. */
-function buildSteps(board: Board): Step[] {
+function buildDepthFirstSteps(board: Board): Step[] {
   const steps: Step[] = [];
   const yOf = (id: ID) => board.blocks[id]?.y ?? Number.POSITIVE_INFINITY;
   const walk = (id: ID, depth: number) => {
@@ -27,20 +27,49 @@ function buildSteps(board: Board): Step[] {
   return steps;
 }
 
-/** Full-screen step-through of the tree for review meetings: Next/Prev walk
- *  every node depth-first (drilling into children before moving to the next
- *  sibling), and a level selector jumps straight to any depth. */
+/** Breadth-first order: every node at depth 1, then every node at depth 2,
+ *  etc. -- so you see everything at a level (across all pillars) before
+ *  drilling deeper. A stable sort of the depth-first list by depth, which
+ *  keeps each pillar's items grouped together within a level. */
+function toBreadthFirst(depthFirstSteps: Step[]): Step[] {
+  const maxDepth = depthFirstSteps.reduce((m, s) => Math.max(m, s.depth), 1);
+  const out: Step[] = [];
+  for (let d = 1; d <= maxDepth; d++) {
+    for (const s of depthFirstSteps) if (s.depth === d) out.push(s);
+  }
+  return out;
+}
+
+/** Full-screen step-through of the tree for review meetings. Next/Prev walk
+ *  every node in either depth-first order (drill into each branch fully
+ *  before moving to the next pillar) or breadth-first order (see everything
+ *  at one level before going deeper); a level selector jumps straight to a
+ *  chosen depth. */
 export function Present({ onExit }: { onExit: () => void }) {
   const { board, dispatch } = useBoard();
   const { fitView } = useReactFlow();
-  const steps = useMemo(() => buildSteps(board), [board]);
+  const [mode, setMode] = useState<WalkMode>("depth");
+  const depthSteps = useMemo(() => buildDepthFirstSteps(board), [board]);
+  const steps = useMemo(
+    () => (mode === "depth" ? depthSteps : toBreadthFirst(depthSteps)),
+    [mode, depthSteps]
+  );
   const maxDepth = useMemo(() => steps.reduce((m, s) => Math.max(m, s.depth), 1), [steps]);
-  const [i, setI] = useState(0);
+
+  // Track the current NODE (not just an index): stays valid across a mode
+  // switch (which reorders `steps`) or the tree changing mid-presentation.
+  const [currentId, setCurrentId] = useState<ID | null>(null);
+  const i = useMemo(() => {
+    if (currentId == null) return 0;
+    const idx = steps.findIndex((s) => s.id === currentId);
+    return idx === -1 ? 0 : idx;
+  }, [steps, currentId]);
 
   const show = useCallback(
     (idx: number) => {
       const step = steps[idx];
       if (!step) return;
+      setCurrentId(step.id);
       dispatch({ type: "expandTo", id: step.id }); // reveal this node + its own direct children
       const kids = board.blocks[step.id]?.childIds ?? [];
       setTimeout(
@@ -59,21 +88,16 @@ export function Present({ onExit }: { onExit: () => void }) {
 
   const go = useCallback(
     (delta: number) => {
-      setI((prev) => {
-        const next = Math.min(steps.length - 1, Math.max(0, prev + delta));
-        show(next);
-        return next;
-      });
+      const next = Math.min(steps.length - 1, Math.max(0, i + delta));
+      show(next);
     },
-    [steps.length, show]
+    [steps.length, i, show]
   );
 
   const jumpToLevel = useCallback(
     (depth: number) => {
       const idx = steps.findIndex((s) => s.depth === depth);
-      if (idx === -1) return;
-      setI(idx);
-      show(idx);
+      if (idx !== -1) show(idx);
     },
     [steps, show]
   );
@@ -108,6 +132,15 @@ export function Present({ onExit }: { onExit: () => void }) {
       <button className="tbtn" onClick={() => go(1)} disabled={i >= steps.length - 1}>
         Next ›
       </button>
+      <select
+        className="filter-select"
+        value={mode}
+        title="Depth-first drills into each branch fully before the next pillar; breadth-first shows a whole level before going deeper"
+        onChange={(e) => setMode(e.target.value as WalkMode)}
+      >
+        <option value="depth">Depth-first</option>
+        <option value="breadth">Breadth-first</option>
+      </select>
       {maxDepth > 1 && (
         <select
           className="filter-select"

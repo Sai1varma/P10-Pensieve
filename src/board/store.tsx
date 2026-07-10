@@ -536,6 +536,12 @@ interface Store {
   /** Merge point for the cloud index hook's sign-in reconcile / realtime feed. */
   setBoardsFromRemote: (rows: BoardIndexEntry[]) => void;
   markBoardCloudStatus: (id: ID, status: BoardIndexEntry["cloudStatus"], ownerEmail?: string) => void;
+  /** For useCollab: apply a board that arrived from a live collaborator (initial
+   *  fetch or a realtime update). Resets local undo history instead of pushing
+   *  onto it — otherwise "Undo" during live collaboration pops off whatever a
+   *  collaborator just typed rather than your own last edit, and could clobber
+   *  their live changes if undone far enough. */
+  applyRemoteBoard: (board: Board) => void;
 }
 
 const BoardContext = createContext<Store | null>(null);
@@ -699,6 +705,13 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const applyRemoteBoard = useCallback(
+    (remoteBoard: Board) => {
+      dispatch({ type: "loadBoard", board: remoteBoard });
+    },
+    []
+  );
+
   return (
     <BoardContext.Provider
       value={{
@@ -716,6 +729,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
         deleteBoard,
         setBoardsFromRemote,
         markBoardCloudStatus,
+        applyRemoteBoard,
       }}
     >
       {children}

@@ -29,7 +29,7 @@ function boardIdFromUrl(): string | null {
  * never requires a login.
  */
 export function useCollab(): CollabState {
-  const { board, dispatch } = useBoard();
+  const { board, applyRemoteBoard } = useBoard();
   const [boardId, setBoardId] = useState<string | null>(boardIdFromUrl);
   const [session, setSession] = useState<Session | null>(null);
   const [status, setStatus] = useState<CollabStatus>(
@@ -80,7 +80,7 @@ export function useCollab(): CollabState {
       if (data?.data) {
         skipUpsertRef.current = true;
         lastRemoteRef.current = data.updated_at;
-        dispatch({ type: "import", board: data.data as Board });
+        applyRemoteBoard(data.data as Board);
       }
 
       const channel = sb
@@ -93,7 +93,7 @@ export function useCollab(): CollabState {
             if (row.updated_at !== lastRemoteRef.current) {
               lastRemoteRef.current = row.updated_at;
               skipUpsertRef.current = true;
-              dispatch({ type: "import", board: row.data });
+              applyRemoteBoard(row.data);
             }
           }
         )
@@ -122,7 +122,7 @@ export function useCollab(): CollabState {
         channelRef.current = null;
       }
     };
-  }, [boardId, session, dispatch]);
+  }, [boardId, session, applyRemoteBoard]);
 
   // Debounced upsert of local changes while live.
   useEffect(() => {

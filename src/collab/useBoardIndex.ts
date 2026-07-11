@@ -10,6 +10,7 @@ interface Row {
   updated_at: string;
   owner_email: string | null;
   kind: string | null;
+  is_public: boolean | null;
 }
 
 /**
@@ -40,7 +41,7 @@ export function useBoardIndex(): { refresh: () => void } {
     const email = session?.user.email;
     if (!sb || !email) return;
     sb.from("boards")
-      .select("id, name, updated_at, owner_email, kind:data->>kind")
+      .select("id, name, updated_at, owner_email, is_public, kind:data->>kind")
       .eq("owner_email", email)
       .order("updated_at", { ascending: false })
       .then(({ data, error }) => {
@@ -54,6 +55,7 @@ export function useBoardIndex(): { refresh: () => void } {
           cloudStatus: "live",
           ownerEmail: r.owner_email,
           kind: (r.kind as BoardKind | null) ?? "tree",
+          isPublic: r.is_public ?? false,
         }));
         setBoardsFromRemote(entries);
       });

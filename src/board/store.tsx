@@ -804,10 +804,18 @@ interface Store {
   switchBoard: (id: ID) => void;
   renameBoard: (id: ID, name: string) => void;
   duplicateBoard: (id: ID) => ID;
+  /** For the gallery (item 9): create a new local board from externally
+   *  fetched content (e.g. someone else's published board), instead of
+   *  content already cached locally the way duplicateBoard reads it. Does
+   *  not switch to the new board, matching duplicateBoard's behavior. */
+  importAsNewBoard: (board: Board, name: string) => ID;
   deleteBoard: (id: ID, opts: { alsoDeleteShared: boolean }) => void;
   /** Merge point for the cloud index hook's sign-in reconcile / realtime feed. */
   setBoardsFromRemote: (rows: BoardIndexEntry[]) => void;
   markBoardCloudStatus: (id: ID, status: BoardIndexEntry["cloudStatus"], ownerEmail?: string) => void;
+  /** For the gallery (item 9): reflect a publish/unpublish toggle (already
+   *  written to Supabase by the caller) into the local index entry. */
+  markBoardIsPublic: (id: ID, isPublic: boolean) => void;
   /** For useCollab: apply a board that arrived from a live collaborator (initial
    *  fetch or a realtime update). Resets local undo history instead of pushing
    *  onto it — otherwise "Undo" during live collaboration pops off whatever a
@@ -823,7 +831,7 @@ interface Store {
   adoptRemoteBoard: (
     id: ID,
     board: Board,
-    meta: { name: string; ownerEmail: string | null; updatedAt: string }
+    meta: { name: string; ownerEmail: string | null; updatedAt: string; isPublic?: boolean }
   ) => void;
 }
 
@@ -942,6 +950,18 @@ export function BoardProvider({
     [index]
   );
 
+  const importAsNewBoard = useCallback((importedBoard: Board, name: string): ID => {
+    const cloned: Board = JSON.parse(JSON.stringify(importedBoard));
+    const { entry, id: newId } = freshBoardEntry(cloned);
+    const named: BoardIndexEntry = { ...entry, name, manualName: true };
+    setIndex((idx) => {
+      const next = [...idx, named];
+      persistIndex(next);
+      return next;
+    });
+    return newId;
+  }, []);
+
   const deleteBoard = useCallback(
     // alsoDeleteShared is consumed by the caller (BoardSwitcher -> useBoardIndex),
     // which deletes the cloud row separately — store.tsx stays Supabase-unaware.
@@ -995,6 +1015,14 @@ export function BoardProvider({
     []
   );
 
+  const markBoardIsPublic = useCallback((id: ID, isPublic: boolean) => {
+    setIndex((idx) => {
+      const next = idx.map((e) => (e.id === id ? { ...e, isPublic } : e));
+      persistIndex(next);
+      return next;
+    });
+  }, []);
+
   const applyRemoteBoard = useCallback(
     (remoteBoard: Board) => {
       dispatch({ type: "loadBoard", board: remoteBoard });
@@ -1006,7 +1034,7 @@ export function BoardProvider({
     (
       id: ID,
       remoteBoard: Board,
-      meta: { name: string; ownerEmail: string | null; updatedAt: string }
+      meta: { name: string; ownerEmail: string | null; updatedAt: string; isPublic?: boolean }
     ) => {
       // Flush any pending edits on the board we're navigating away from, same
       // as switchBoard -- otherwise an unsaved local edit is silently lost.
@@ -1031,11 +1059,18 @@ export function BoardProvider({
                   cloudStatus: "live" as const,
                   ownerEmail: meta.ownerEmail,
                   kind: remoteBoard.kind,
+                  isPublic: meta.isPublic ?? false,
                 },
               ]
             : idx.map((e) =>
                 e.id === id
-                  ? { ...e, cloudStatus: "live" as const, ownerEmail: meta.ownerEmail, updatedAt: meta.updatedAt }
+                  ? {
+                      ...e,
+                      cloudStatus: "live" as const,
+                      ownerEmail: meta.ownerEmail,
+                      updatedAt: meta.updatedAt,
+                      isPublic: meta.isPublic ?? e.isPublic,
+                    }
                   : e
               );
         persistIndex(next);
@@ -1072,9 +1107,11 @@ export function BoardProvider({
         switchBoard,
         renameBoard,
         duplicateBoard,
+        importAsNewBoard,
         deleteBoard,
         setBoardsFromRemote,
         markBoardCloudStatus,
+        markBoardIsPublic,
         applyRemoteBoard,
         adoptRemoteBoard,
       }}

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useBoard } from "../board/store";
 import { useBoardIndex } from "../collab/useBoardIndex";
+import { setBoardPublic } from "../collab/gallery";
+import { GalleryPanel } from "./GalleryPanel";
 import {
   TEMPLATE_META,
   TEMPLATE_ORDER,
@@ -30,13 +32,32 @@ const STATUS_LABEL: Record<BoardIndexEntry["cloudStatus"], string> = {
 
 /** Toolbar dropdown for switching between boards, plus new/rename/duplicate/delete. */
 export function BoardSwitcher() {
-  const { boards, currentBoardId, switchBoard, createBoard, renameBoard, duplicateBoard, deleteBoard } =
-    useBoard();
+  const {
+    boards,
+    currentBoardId,
+    switchBoard,
+    createBoard,
+    renameBoard,
+    duplicateBoard,
+    deleteBoard,
+    markBoardIsPublic,
+  } = useBoard();
   const { refresh: refreshCloudBoards } = useBoardIndex();
   const current = boards.find((b) => b.id === currentBoardId);
   const [open, setOpen] = useState(false);
   const [modal, setModal] = useState<ModalState>(null);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  // Only live (already-a-cloud-row) boards can be published -- there's
+  // nothing to publish until "Go Live" has created the Supabase row.
+  const togglePublic = async (b: BoardIndexEntry) => {
+    const next = !b.isPublic;
+    if (next && !confirm(`Publish "${b.name}" to the People10 gallery? Anyone signed in will be able to view and duplicate it.`)) {
+      return;
+    }
+    if (await setBoardPublic(b.id, next)) markBoardIsPublic(b.id, next);
+  };
 
   // Cloud boards never opened on this device have no ?board= session yet --
   // route those through a full page load (reuses the exact bootstrap path
@@ -95,6 +116,14 @@ export function BoardSwitcher() {
                   {b.kind === "whiteboard" && <span className="board-kind-badge">Whiteboard</span>}
                 </button>
                 <div className="board-row-actions">
+                  {b.cloudStatus === "live" && (
+                    <button
+                      title={b.isPublic ? "Published to the gallery — click to unpublish" : "Publish to the gallery"}
+                      onClick={() => togglePublic(b)}
+                    >
+                      {b.isPublic ? "🌐" : "🔒"}
+                    </button>
+                  )}
                   <button
                     title="Rename"
                     onClick={() => setModal({ kind: "rename", id: b.id, value: b.name })}
@@ -126,9 +155,20 @@ export function BoardSwitcher() {
             >
               + New board
             </button>
+            <button
+              className="menu-item"
+              onClick={() => {
+                setGalleryOpen(true);
+                setOpen(false);
+              }}
+            >
+              🖼 Browse gallery
+            </button>
           </div>
         )}
       </div>
+
+      {galleryOpen && <GalleryPanel onClose={() => setGalleryOpen(false)} />}
 
       {modal?.kind === "new" && (
         <NewBoardModal

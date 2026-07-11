@@ -80,7 +80,7 @@ export function useCollab(focusedId: string | null = null, viewOnly = false): Co
     (async () => {
       const { data, error } = await sb
         .from("boards")
-        .select("data, updated_at, name, owner_email")
+        .select("data, updated_at, name, owner_email, is_public")
         .eq("id", boardId)
         .single();
       if (cancelled) return;
@@ -104,6 +104,7 @@ export function useCollab(focusedId: string | null = null, viewOnly = false): Co
             name: data.name ?? "Board",
             ownerEmail: data.owner_email ?? null,
             updatedAt: data.updated_at,
+            isPublic: data.is_public ?? false,
           });
         }
       }

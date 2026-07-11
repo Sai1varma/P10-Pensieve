@@ -154,6 +154,9 @@ export interface BoardIndexEntry {
   /** Optional so pre-existing stored entries (all trees) keep parsing; treat
    *  a missing value as "tree" wherever this is read. */
   kind?: BoardKind;
+  /** Published to the org-wide gallery (item 9). Only meaningful once
+   *  cloudStatus is "live" -- undefined/false elsewhere. */
+  isPublic?: boolean;
 }
 
 /* ---------- generated color engine ----------

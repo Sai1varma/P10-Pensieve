@@ -371,9 +371,18 @@ function NodeDetails({
   const [owner, setOwner] = useState(block.owner ?? "");
   const [tagDraft, setTagDraft] = useState("");
   const [linkDraft, setLinkDraft] = useState("");
+  const [commentDraft, setCommentDraft] = useState("");
   const tags = block.tags ?? [];
   const links = block.links ?? [];
+  const comments = block.comments ?? [];
   const related = (block.relatedIds ?? []).map((id) => blocks[id]).filter((b): b is Block => !!b);
+
+  const postComment = () => {
+    const text = commentDraft.trim();
+    if (!text) return;
+    dispatch({ type: "addComment", id: block.id, author: me?.trim() || "Anonymous", text });
+    setCommentDraft("");
+  };
 
   const patch = (p: Partial<Block>) => dispatch({ type: "patchBlock", id: block.id, patch: p });
 
@@ -534,6 +543,45 @@ function NodeDetails({
           ))}
         </div>
       )}
+
+      <div className="comments">
+        <h4 className="comments-heading">
+          Comments{comments.length > 0 ? ` (${comments.length})` : ""}
+        </h4>
+        {comments.map((c) => (
+          <div key={c.id} className="comment-row">
+            <div className="comment-meta">
+              <strong>{c.author}</strong>
+              <span className="comment-time">{new Date(c.createdAt).toLocaleString()}</span>
+              <button
+                className="chip-x comment-delete"
+                title="Delete comment"
+                onClick={() => dispatch({ type: "deleteComment", id: block.id, commentId: c.id })}
+              >
+                ×
+              </button>
+            </div>
+            <p className="comment-text">{c.text}</p>
+          </div>
+        ))}
+        <div className="comment-compose">
+          <textarea
+            className="detail-note comment-input"
+            placeholder={me ? `Comment as ${me}…` : "Comment…"}
+            value={commentDraft}
+            onChange={(e) => setCommentDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                postComment();
+              }
+            }}
+          />
+          <button className="tbtn" disabled={!commentDraft.trim()} onClick={postComment}>
+            Post
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

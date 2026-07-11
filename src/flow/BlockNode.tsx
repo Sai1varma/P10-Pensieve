@@ -17,6 +17,7 @@ export interface BlockNodeData {
   tagCount: number;
   hasLinks: boolean;
   hasNote: boolean;
+  commentCount: number;
   /** Number of non-hierarchical "relates to" links this node has. */
   relatedCount: number;
   match?: boolean;
@@ -105,7 +106,13 @@ function BlockNodeImpl({ data, selected }: NodeProps) {
         )}
       </div>
 
-      {(d.status || d.votes > 0 || d.tagCount > 0 || d.hasLinks || d.hasNote || d.relatedCount > 0) && (
+      {(d.status ||
+        d.votes > 0 ||
+        d.tagCount > 0 ||
+        d.hasLinks ||
+        d.hasNote ||
+        d.commentCount > 0 ||
+        d.relatedCount > 0) && (
         <div className="node-badges" style={{ color: d.color ? fg : "var(--muted)" }}>
           {d.status && (
             <span
@@ -128,6 +135,11 @@ function BlockNodeImpl({ data, selected }: NodeProps) {
           {d.hasLinks && (
             <span className="badge" title="Has links">
               🔗
+            </span>
+          )}
+          {d.commentCount > 0 && (
+            <span className="badge" title={`${d.commentCount} comment${d.commentCount === 1 ? "" : "s"}`}>
+              💬 {d.commentCount}
             </span>
           )}
           {d.tagCount > 0 && (

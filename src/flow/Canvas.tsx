@@ -53,6 +53,7 @@ function makeData(
     tagCount: b.tags?.length ?? 0,
     hasLinks: (b.links?.length ?? 0) > 0,
     hasNote: !!(b.note && b.note.trim()),
+    commentCount: b.comments?.length ?? 0,
     relatedCount: b.relatedIds?.length ?? 0,
     match: view.active && view.isMatch(id),
     dim: view.active && !view.isMatch(id),

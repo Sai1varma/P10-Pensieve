@@ -20,6 +20,7 @@ import {
   type BoardIndexEntry,
   type BoardKind,
   type Card,
+  type Comment,
   type ID,
   type TemplateId,
   type TreeBoard,
@@ -367,6 +368,8 @@ export type Action =
   | { type: "addMember"; name: string }
   | { type: "linkNodes"; aId: ID; bId: ID }
   | { type: "unlinkNodes"; aId: ID; bId: ID }
+  | { type: "addComment"; id: ID; author: string; text: string }
+  | { type: "deleteComment"; id: ID; commentId: ID }
   | { type: "delete"; id: ID }
   | { type: "toggleCollapse"; id: ID }
   | { type: "expandTo"; id: ID }
@@ -509,6 +512,34 @@ function treeReducer(state: TreeBoard, action: Action): TreeBoard {
           ...state.blocks,
           [a.id]: { ...a, relatedIds: (a.relatedIds ?? []).filter((r) => r !== b.id) },
           [b.id]: { ...b, relatedIds: (b.relatedIds ?? []).filter((r) => r !== a.id) },
+        },
+      };
+    }
+
+    case "addComment": {
+      const b = state.blocks[action.id];
+      const text = action.text.trim();
+      if (!b || !text) return state;
+      const comment: Comment = {
+        id: uid(),
+        author: action.author.trim() || "Anonymous",
+        createdAt: new Date().toISOString(),
+        text,
+      };
+      return {
+        ...state,
+        blocks: { ...state.blocks, [b.id]: { ...b, comments: [...(b.comments ?? []), comment] } },
+      };
+    }
+
+    case "deleteComment": {
+      const b = state.blocks[action.id];
+      if (!b) return state;
+      return {
+        ...state,
+        blocks: {
+          ...state.blocks,
+          [b.id]: { ...b, comments: (b.comments ?? []).filter((c) => c.id !== action.commentId) },
         },
       };
     }

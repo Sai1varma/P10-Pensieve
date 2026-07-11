@@ -33,6 +33,15 @@ export interface ViewFilter {
   tag?: string;
 }
 
+/** One async comment on a node (distinct from the single `note` field --
+ *  a thread, not a summary). */
+export interface Comment {
+  id: ID;
+  author: string;
+  createdAt: string; // ISO timestamp
+  text: string;
+}
+
 /** A single node in the tree. `level` is derived from depth, not stored. */
 export interface Block {
   id: ID;
@@ -54,6 +63,8 @@ export interface Block {
    *  linking A<->B adds each to the other's relatedIds. Separate from the
    *  parent-child tree entirely -- rendered as dashed cross-edges. */
   relatedIds?: ID[];
+  /** Async discussion thread, separate from the single `note` field. */
+  comments?: Comment[];
 }
 
 /** Which interaction model a board uses. Orthogonal to `version` (schema

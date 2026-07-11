@@ -1309,6 +1309,60 @@ button.insights-row-btn:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ---------- comment thread ---------- */
+.comments {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+.comments-heading {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.comment-row {
+  padding: 8px 10px;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+}
+.comment-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin-bottom: 3px;
+}
+.comment-time {
+  color: var(--muted);
+  font-size: 11px;
+}
+.comment-delete {
+  margin-left: auto;
+}
+.comment-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.comment-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.comment-input {
+  min-height: 44px;
+}
+.comment-compose .tbtn {
+  align-self: flex-end;
+}
 .panel-body {
   flex: 1;
   overflow-y: auto;

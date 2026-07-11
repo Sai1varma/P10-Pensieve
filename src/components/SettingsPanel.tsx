@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { loadSettings, saveSettings, type AppSettings } from "../board/settings";
+import { loadSettings, saveSettings, PROVIDER_LABELS, type AppSettings, type ProviderId } from "../board/settings";
 
-/** App-level preferences (separate from board content). Currently just
- *  Present mode's default traversal order; structured to grow (e.g. AI
- *  model config) without restructuring. */
+const PROVIDER_ORDER: ProviderId[] = ["openai", "deepseek", "groq", "mistral", "xai", "gemini"];
+
+/** App-level preferences (separate from board content): Present mode's
+ *  default traversal order, and AI provider/model for the Expand-idea
+ *  action (BlockNode.tsx). No API key field here -- keys live server-side
+ *  in the Edge Function, never the browser. */
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const [settings, setSettingsState] = useState<AppSettings>(loadSettings);
 
@@ -43,6 +46,34 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         <p className="modal-body" style={{ marginTop: 10 }}>
           You can still switch for a single presentation from Present mode's own toggle — this only
           changes what it starts with.
+        </p>
+
+        <p className="palette-heading" style={{ marginTop: 14 }}>
+          AI (Expand idea)
+        </p>
+        <select
+          className="filter-select"
+          style={{ width: "100%", marginBottom: 8 }}
+          value={settings.aiProvider ?? ""}
+          onChange={(e) => update({ aiProvider: (e.target.value || null) as ProviderId | null })}
+        >
+          <option value="">Not configured</option>
+          {PROVIDER_ORDER.map((p) => (
+            <option key={p} value={p}>
+              {PROVIDER_LABELS[p]}
+            </option>
+          ))}
+        </select>
+        <input
+          className="detail-input modal-input"
+          placeholder="Model id, e.g. deepseek-chat"
+          value={settings.aiModel}
+          onChange={(e) => update({ aiModel: e.target.value })}
+          disabled={!settings.aiProvider}
+        />
+        <p className="modal-body" style={{ marginTop: 8 }}>
+          Only picks which provider/model the "✨ Expand" node action uses — the actual API key is
+          configured server-side and never touches your browser.
         </p>
       </div>
     </div>

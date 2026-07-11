@@ -177,6 +177,20 @@ export function descendantIds(blocks: Record<ID, Block>, id: ID): ID[] {
   return out;
 }
 
+/** A node's ancestor chain, root-first, excluding the node itself -- context
+ *  for the "Expand idea" AI action (BlockNode.tsx). */
+export function ancestorTexts(blocks: Record<ID, Block>, id: ID): string[] {
+  const out: string[] = [];
+  let cur = blocks[id]?.parentId ?? null;
+  while (cur) {
+    const b = blocks[cur];
+    if (!b) break;
+    out.unshift(b.text);
+    cur = b.parentId;
+  }
+  return out;
+}
+
 // ---------- persistence + migration ----------
 
 function migrate(parsed: any): Board | null {
@@ -359,6 +373,7 @@ function persistBoardContent(
 
 export type Action =
   | { type: "addChild"; parentId: ID; text?: string }
+  | { type: "addChildren"; parentId: ID; texts: string[] }
   | { type: "addSibling"; siblingId: ID }
   | { type: "editText"; id: ID; text: string }
   | { type: "setColor"; id: ID; color: string | null }
@@ -415,6 +430,32 @@ function treeReducer(state: TreeBoard, action: Action): TreeBoard {
           },
         },
       };
+    }
+
+    case "addChildren": {
+      // Same as addChild, looped, but as ONE state update -- so e.g. the
+      // AI "Expand idea" action's 3-5 new nodes are a single undo step,
+      // not one the user has to undo five times.
+      const parent = state.blocks[action.parentId];
+      if (!parent || action.texts.length === 0) return state;
+      const blocks = { ...state.blocks };
+      const newIds: ID[] = [];
+      // Track childIds as they accumulate so newNodeColor sees siblings
+      // already added earlier in this same batch (matters when parent is
+      // root: each top-level category needs a color distinct from the
+      // others, not just from what existed before this action ran).
+      let childIds = parent.childIds;
+      for (const text of action.texts) {
+        const color = newNodeColor(blocks, { ...parent, childIds });
+        const child = makeBlock(action.parentId, text, color);
+        child.x = (parent.x ?? 0) + 300;
+        child.y = (parent.y ?? 0) + childIds.length * 40;
+        blocks[child.id] = child;
+        newIds.push(child.id);
+        childIds = [...childIds, child.id];
+      }
+      blocks[parent.id] = { ...parent, collapsed: false, childIds };
+      return { ...state, blocks };
     }
 
     case "addSibling": {

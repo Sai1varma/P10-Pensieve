@@ -1,7 +1,9 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import { useBoard } from "../board/store";
-import { contrastText, STATUS_META, type Status } from "../board/types";
+import { ancestorTexts, useBoard } from "../board/store";
+import { contrastText, STATUS_META, type Status, type TreeBoard } from "../board/types";
+import { loadSettings } from "../board/settings";
+import { expandIdea } from "../collab/ai";
 import { ColorPalette } from "../components/ColorPalette";
 import { compressImage, MAX_IMAGE_SOURCE_BYTES } from "../board/imageUtils";
 
@@ -37,10 +39,13 @@ export interface BlockNodeData {
 
 function BlockNodeImpl({ data, selected }: NodeProps) {
   const d = data as BlockNodeData;
-  const { dispatch, viewOnly } = useBoard();
+  // BlockNode is only ever mounted for tree boards (App.tsx branches by board.kind).
+  const { dispatch, viewOnly, board: rawBoard } = useBoard();
+  const board = rawBoard as TreeBoard;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(d.text);
   const [showPalette, setShowPalette] = useState(false);
+  const [expanding, setExpanding] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -75,6 +80,27 @@ function BlockNodeImpl({ data, selected }: NodeProps) {
     } catch {
       alert("Could not read that image.");
     }
+  };
+
+  const onExpand = async () => {
+    const settings = loadSettings();
+    if (!settings.aiProvider) {
+      alert('Pick an AI provider in Settings first (More ▾ → ⚙ Settings).');
+      return;
+    }
+    setExpanding(true);
+    const result = await expandIdea({
+      nodeText: d.text,
+      ancestorTexts: ancestorTexts(board.blocks, d.blockId),
+      provider: settings.aiProvider,
+      model: settings.aiModel,
+    });
+    setExpanding(false);
+    if (result.error || !result.ideas?.length) {
+      alert(result.error || "The AI didn't return any ideas.");
+      return;
+    }
+    dispatch({ type: "addChildren", parentId: d.blockId, texts: result.ideas });
   };
 
   return (
@@ -206,6 +232,14 @@ function BlockNodeImpl({ data, selected }: NodeProps) {
             onClick={() => setShowPalette((s) => !s)}
           >
             ●
+          </button>
+          <button
+            className="node-btn"
+            title="Expand this idea with AI — generates a few candidate sub-ideas you can keep, edit, or discard"
+            onClick={onExpand}
+            disabled={expanding}
+          >
+            {expanding ? "…" : "✨"}
           </button>
           <button
             className={`node-btn${d.linking ? " node-btn-active" : ""}`}

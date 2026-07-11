@@ -185,7 +185,15 @@ export function SidePanel({
         </span>
       </div>
 
-      <NodeDetails key={focused.id} block={focused} dispatch={dispatch} members={board.members ?? []} me={me} />
+      <NodeDetails
+        key={focused.id}
+        block={focused}
+        dispatch={dispatch}
+        members={board.members ?? []}
+        me={me}
+        blocks={board.blocks}
+        onJumpTo={drill}
+      />
 
       <div className="panel-body">
         {focused.childIds.length === 0 && (
@@ -349,11 +357,15 @@ function NodeDetails({
   dispatch,
   members,
   me,
+  blocks,
+  onJumpTo,
 }: {
   block: Block;
   dispatch: Dispatch<Action>;
   members: Member[];
   me?: string;
+  blocks: Record<ID, Block>;
+  onJumpTo: (id: ID) => void;
 }) {
   const [note, setNote] = useState(block.note ?? "");
   const [owner, setOwner] = useState(block.owner ?? "");
@@ -361,6 +373,7 @@ function NodeDetails({
   const [linkDraft, setLinkDraft] = useState("");
   const tags = block.tags ?? [];
   const links = block.links ?? [];
+  const related = (block.relatedIds ?? []).map((id) => blocks[id]).filter((b): b is Block => !!b);
 
   const patch = (p: Partial<Block>) => dispatch({ type: "patchBlock", id: block.id, patch: p });
 
@@ -502,6 +515,25 @@ function NodeDetails({
           onBlur={addLink}
         />
       </div>
+
+      {related.length > 0 && (
+        <div className="chips related-chips">
+          {related.map((r) => (
+            <span key={r.id} className="chip">
+              <button className="chip-jump" onClick={() => onJumpTo(r.id)} title="Jump to this node">
+                ↔ {r.text || "Untitled"}
+              </button>
+              <button
+                className="chip-x"
+                title="Remove this link"
+                onClick={() => dispatch({ type: "unlinkNodes", aId: block.id, bId: r.id })}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

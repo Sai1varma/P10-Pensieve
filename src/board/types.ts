@@ -50,6 +50,10 @@ export interface Block {
   links?: string[];
   tags?: string[];
   votes?: number;
+  /** Non-hierarchical "relates to" links to other blocks, kept symmetric:
+   *  linking A<->B adds each to the other's relatedIds. Separate from the
+   *  parent-child tree entirely -- rendered as dashed cross-edges. */
+  relatedIds?: ID[];
 }
 
 /** Which interaction model a board uses. Orthogonal to `version` (schema

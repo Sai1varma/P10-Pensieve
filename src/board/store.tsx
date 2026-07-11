@@ -365,6 +365,8 @@ export type Action =
   | { type: "vote"; id: ID; delta: number }
   | { type: "reorderChildren"; parentId: ID; orderedIds: ID[] }
   | { type: "addMember"; name: string }
+  | { type: "linkNodes"; aId: ID; bId: ID }
+  | { type: "unlinkNodes"; aId: ID; bId: ID }
   | { type: "delete"; id: ID }
   | { type: "toggleCollapse"; id: ID }
   | { type: "expandTo"; id: ID }
@@ -481,13 +483,48 @@ function treeReducer(state: TreeBoard, action: Action): TreeBoard {
       return { ...state, members: [...members, member] };
     }
 
+    case "linkNodes": {
+      if (action.aId === action.bId) return state;
+      const a = state.blocks[action.aId];
+      const b = state.blocks[action.bId];
+      if (!a || !b) return state;
+      if (a.relatedIds?.includes(b.id)) return state; // already linked
+      return {
+        ...state,
+        blocks: {
+          ...state.blocks,
+          [a.id]: { ...a, relatedIds: [...(a.relatedIds ?? []), b.id] },
+          [b.id]: { ...b, relatedIds: [...(b.relatedIds ?? []), a.id] },
+        },
+      };
+    }
+
+    case "unlinkNodes": {
+      const a = state.blocks[action.aId];
+      const b = state.blocks[action.bId];
+      if (!a || !b) return state;
+      return {
+        ...state,
+        blocks: {
+          ...state.blocks,
+          [a.id]: { ...a, relatedIds: (a.relatedIds ?? []).filter((r) => r !== b.id) },
+          [b.id]: { ...b, relatedIds: (b.relatedIds ?? []).filter((r) => r !== a.id) },
+        },
+      };
+    }
+
     case "delete": {
       const target = state.blocks[action.id];
       if (!target || target.parentId == null) return state; // never delete root
       const doomed = new Set(descendantIds(state.blocks, action.id));
       const blocks: Record<ID, Block> = {};
       for (const [id, blk] of Object.entries(state.blocks)) {
-        if (!doomed.has(id)) blocks[id] = blk;
+        if (doomed.has(id)) continue;
+        const relatedIds = blk.relatedIds?.filter((r) => !doomed.has(r));
+        blocks[id] =
+          relatedIds && relatedIds.length !== (blk.relatedIds?.length ?? 0)
+            ? { ...blk, relatedIds }
+            : blk;
       }
       const parent = blocks[target.parentId];
       if (parent) {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -35,7 +35,9 @@ function makeData(
   board: TreeBoard,
   id: string,
   view: View,
-  focusByNode: Record<string, string[]>
+  focusByNode: Record<string, string[]>,
+  linkingFrom: string | null,
+  onStartLink: (id: string) => void
 ): BlockNodeData {
   const b = board.blocks[id];
   return {
@@ -51,9 +53,12 @@ function makeData(
     tagCount: b.tags?.length ?? 0,
     hasLinks: (b.links?.length ?? 0) > 0,
     hasNote: !!(b.note && b.note.trim()),
+    relatedCount: b.relatedIds?.length ?? 0,
     match: view.active && view.isMatch(id),
     dim: view.active && !view.isMatch(id),
     peerNames: focusByNode[id] ?? [],
+    linking: id === linkingFrom,
+    onStartLink,
   };
 }
 
@@ -101,6 +106,7 @@ export function Canvas({
   const board = rawBoard as TreeBoard;
   const { fitView } = useReactFlow();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [linkingFrom, setLinkingFrom] = useState<string | null>(null);
   const lastSig = useRef<string | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   // Previous board, used only to detect a single node's collapsed flag
@@ -139,7 +145,9 @@ export function Canvas({
     return max;
   }, [board]);
 
-  // Edges follow the visible tree; tinted toward the child's color.
+  // Edges follow the visible tree (tinted toward the child's color), plus a
+  // dashed cross-edge for every non-hierarchical "relates to" link where
+  // both ends are currently visible.
   const edges: Edge[] = useMemo(() => {
     const vis = new Set(visibleIds(board));
     const out: Edge[] = [];
@@ -154,6 +162,16 @@ export function Canvas({
           style: { stroke: b.color ?? "var(--edge-strong)", strokeWidth: 2 },
         });
       }
+      for (const relId of b.relatedIds ?? []) {
+        if (!vis.has(relId) || id > relId) continue; // undirected: emit each pair once
+        out.push({
+          id: `rel-${id}-${relId}`,
+          source: id,
+          target: relId,
+          type: "straight",
+          style: { stroke: "var(--muted)", strokeWidth: 1.5, strokeDasharray: "5 4" },
+        });
+      }
     }
     return out;
   }, [board]);
@@ -162,6 +180,18 @@ export function Canvas({
     // let React commit the new nodes first, then animate the camera
     setTimeout(() => fitView({ duration: 500, padding: 0.15, maxZoom: 1.2, minZoom: 0.05 }), 30);
   }, [fitView]);
+
+  const onStartLink = useCallback((id: string) => setLinkingFrom(id), []);
+
+  // Escape cancels an in-progress "link to" pick.
+  useEffect(() => {
+    if (!linkingFrom) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLinkingFrom(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [linkingFrom]);
 
   // Structure changed -> re-flow (dagre) + animate camera. Otherwise just refresh data.
   useEffect(() => {
@@ -190,7 +220,7 @@ export function Canvas({
           id,
           type: "block",
           position: pos[id] ?? { x: 0, y: 0 },
-          data: makeData(board, id, view, focusByNode),
+          data: makeData(board, id, view, focusByNode, linkingFrom, onStartLink),
         }))
       );
 
@@ -234,11 +264,15 @@ export function Canvas({
         nds.map((n) => {
           const b = board.blocks[n.id];
           const stored = b && b.x != null && b.y != null ? { x: b.x, y: b.y } : null;
-          return { ...n, data: makeData(board, n.id, view, focusByNode), position: stored ?? n.position };
+          return {
+            ...n,
+            data: makeData(board, n.id, view, focusByNode, linkingFrom, onStartLink),
+            position: stored ?? n.position,
+          };
         })
       );
     }
-  }, [board, dispatch, setNodes, runFit, fitView, view, focusByNode]);
+  }, [board, dispatch, setNodes, runFit, fitView, view, focusByNode, linkingFrom, onStartLink]);
 
   const onNodeDragStop = useCallback<OnNodeDrag>(
     (_e, node) => {
@@ -267,7 +301,14 @@ export function Canvas({
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onNodeDragStop={onNodeDragStop}
-        onNodeClick={(_e, node) => onNodeFocus(node.id)}
+        onNodeClick={(_e, node) => {
+          if (linkingFrom) {
+            if (node.id !== linkingFrom) dispatch({ type: "linkNodes", aId: linkingFrom, bId: node.id });
+            setLinkingFrom(null); // clicking the source again just cancels
+            return;
+          }
+          onNodeFocus(node.id);
+        }}
         nodesDraggable={!viewOnly}
         fitView
         minZoom={0.05}
@@ -312,6 +353,14 @@ export function Canvas({
             Fit
           </button>
         </Panel>
+        {linkingFrom && (
+          <Panel position="bottom-center" className="link-banner">
+            <span>Click another node to link it to "{board.blocks[linkingFrom]?.text ?? "…"}" </span>
+            <button className="tbtn" onClick={() => setLinkingFrom(null)}>
+              Cancel (Esc)
+            </button>
+          </Panel>
+        )}
         <Background variant={BackgroundVariant.Dots} gap={22} size={1.5} color="var(--dots)" />
         <MiniMap pannable zoomable nodeColor={(n) => (n.data as BlockNodeData).color ?? "var(--edge)"} />
         <Controls showInteractive={false} />

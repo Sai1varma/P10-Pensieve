@@ -17,10 +17,15 @@ export interface BlockNodeData {
   tagCount: number;
   hasLinks: boolean;
   hasNote: boolean;
+  /** Number of non-hierarchical "relates to" links this node has. */
+  relatedCount: number;
   match?: boolean;
   dim?: boolean;
   /** Names of other live-collab peers who currently have this node open. */
   peerNames?: string[];
+  /** True while this node is the source of an in-progress "link to" pick. */
+  linking?: boolean;
+  onStartLink: (id: string) => void;
   [key: string]: unknown;
 }
 
@@ -53,7 +58,7 @@ function BlockNodeImpl({ data, selected }: NodeProps) {
     <div
       className={`node${selected ? " node-selected" : ""}${d.isRoot ? " node-root" : ""}${
         d.match ? " node-match" : ""
-      }${d.dim ? " node-dim" : ""}`}
+      }${d.dim ? " node-dim" : ""}${d.linking ? " node-linking" : ""}`}
       style={{
         background: d.color ?? "var(--surface)",
         color: d.color ? fg : "var(--text)",
@@ -100,7 +105,7 @@ function BlockNodeImpl({ data, selected }: NodeProps) {
         )}
       </div>
 
-      {(d.status || d.votes > 0 || d.tagCount > 0 || d.hasLinks || d.hasNote) && (
+      {(d.status || d.votes > 0 || d.tagCount > 0 || d.hasLinks || d.hasNote || d.relatedCount > 0) && (
         <div className="node-badges" style={{ color: d.color ? fg : "var(--muted)" }}>
           {d.status && (
             <span
@@ -130,6 +135,14 @@ function BlockNodeImpl({ data, selected }: NodeProps) {
               # {d.tagCount}
             </span>
           )}
+          {d.relatedCount > 0 && (
+            <span
+              className="badge"
+              title={`Related to ${d.relatedCount} other node${d.relatedCount === 1 ? "" : "s"}`}
+            >
+              ↔ {d.relatedCount}
+            </span>
+          )}
         </div>
       )}
 
@@ -144,6 +157,13 @@ function BlockNodeImpl({ data, selected }: NodeProps) {
             onClick={() => setShowPalette((s) => !s)}
           >
             ●
+          </button>
+          <button
+            className={`node-btn${d.linking ? " node-btn-active" : ""}`}
+            title="Link to another node"
+            onClick={() => d.onStartLink(d.blockId)}
+          >
+            ↔
           </button>
           {!d.isRoot && (
             <button

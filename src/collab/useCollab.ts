@@ -52,6 +52,7 @@ export function useCollab(focusedId: string | null = null, viewOnly = false): Co
   const lastRemoteRef = useRef<string | null>(null); // updated_at we last applied
   const skipUpsertRef = useRef(false); // don't re-upload a change we just imported
   const saveTimer = useRef<number | null>(null);
+  const lastLoggedRef = useRef<{ at: number; email: string | null }>({ at: 0, email: null });
 
   // Track the auth session.
   useEffect(() => {
@@ -180,6 +181,21 @@ export function useCollab(focusedId: string | null = null, viewOnly = false): Co
       const updated_at = new Date().toISOString();
       lastRemoteRef.current = updated_at;
       await sb.from("boards").update({ data: board, updated_at }).eq("id", boardId);
+
+      // Lightweight activity breadcrumb, not a field-level diff: one entry
+      // per actor per ~60s of edits, not one per keystroke. Best-effort --
+      // if board_events doesn't exist yet (SQL not run), this just no-ops.
+      const email = session?.user.email ?? null;
+      const since = Date.now() - lastLoggedRef.current.at;
+      if (since > 60_000 || lastLoggedRef.current.email !== email) {
+        lastLoggedRef.current = { at: Date.now(), email };
+        sb.from("board_events")
+          .insert({ board_id: boardId, actor_email: email, action: "Updated the board" })
+          .then(
+            () => {},
+            () => {}
+          );
+      }
     }, 150);
     return () => {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
@@ -204,6 +220,12 @@ export function useCollab(focusedId: string | null = null, viewOnly = false): Co
       setStatus("error");
       return;
     }
+    sb.from("board_events")
+      .insert({ board_id: data.id, actor_email: session.user.email ?? null, action: "Went live" })
+      .then(
+        () => {},
+        () => {}
+      );
     const url = new URL(location.href);
     url.searchParams.set("board", data.id);
     history.replaceState(null, "", url.toString());

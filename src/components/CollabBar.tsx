@@ -1,14 +1,16 @@
 import { useState } from "react";
 import type { CollabState } from "../collab/useCollab";
 import { AuthGate } from "./AuthGate";
+import { ActivityLogPanel } from "./ActivityLogPanel";
 
 /** Floating chip showing collaboration + auth status. Hidden entirely when
  *  Supabase isn't configured. `collab` is lifted to AppShell (rather than
  *  called here) so Canvas can also read its focusByNode for presence
  *  indicators, without opening a second realtime channel. */
 export function CollabBar({ collab }: { collab: CollabState }) {
-  const { status, peers, peerNames, email, goLive, leave, signOut } = collab;
+  const { status, peers, peerNames, boardId, email, goLive, leave, signOut } = collab;
   const [showGate, setShowGate] = useState(false);
+  const [showActivity, setShowActivity] = useState(false);
 
   if (status === "off") return null;
 
@@ -50,6 +52,9 @@ export function CollabBar({ collab }: { collab: CollabState }) {
             <span className="live-dot" /> Live · {peers} online
             {peerNames.length > 0 && <span className="collab-names">· {peerNames.join(", ")}</span>}
           </span>
+          <button className="tbtn" onClick={() => setShowActivity(true)} title="Who changed what, when">
+            Activity
+          </button>
           <button className="tbtn" onClick={leave} title="Stop syncing on this device">
             Leave
           </button>
@@ -60,6 +65,9 @@ export function CollabBar({ collab }: { collab: CollabState }) {
       )}
 
       {showGate && <AuthGate onClose={() => setShowGate(false)} />}
+      {showActivity && boardId && (
+        <ActivityLogPanel boardId={boardId} onClose={() => setShowActivity(false)} />
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { toMarkdown, downloadText } from "../board/io";
 import { exportJson as exportJsonShared, importJsonFile, exportPng as exportPngShared, copyShareLink as copyShareLinkShared } from "../board/exportShared";
 import { STATUS_META, STATUS_ORDER, type Theme, type TreeBoard, type ViewFilter } from "../board/types";
 import { BoardSwitcher } from "./BoardSwitcher";
+import { InsightsPanel } from "./InsightsPanel";
 
 export function Toolbar({
   theme,
@@ -100,6 +101,7 @@ export function Toolbar({
 
   const filterActive = !!filter.status || !!filter.tag;
   const [menuOpen, setMenuOpen] = useState(false);
+  const [insightsOpen, setInsightsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close the More menu on any click/tap outside it.
@@ -204,6 +206,9 @@ export function Toolbar({
       <button className="tbtn" onClick={onPresent} title="Step through pillars">
         ▶ Present
       </button>
+      <button className="tbtn" onClick={() => setInsightsOpen(true)} title="Board insights">
+        📊 Insights
+      </button>
       <div className="menu" ref={menuRef}>
         <button className="tbtn" onClick={() => setMenuOpen((o) => !o)} title="More actions">
           More ▾
@@ -264,6 +269,7 @@ export function Toolbar({
           e.target.value = "";
         }}
       />
+      {insightsOpen && <InsightsPanel onClose={() => setInsightsOpen(false)} />}
     </header>
   );
 }

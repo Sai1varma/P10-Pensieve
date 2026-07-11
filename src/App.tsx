@@ -9,6 +9,7 @@ import { Canvas } from "./flow/Canvas";
 import { Toolbar } from "./components/Toolbar";
 import { WhiteboardCanvas } from "./flow/WhiteboardCanvas";
 import { WhiteboardToolbar } from "./components/WhiteboardToolbar";
+import { CommandPalette } from "./components/CommandPalette";
 import "./index.css";
 
 const SidePanel = lazy(() =>
@@ -34,6 +35,8 @@ function TreeShell({
   setMe,
   focusedId,
   setFocusedId,
+  presenting,
+  setPresenting,
 }: {
   theme: Theme;
   onToggleTheme: () => void;
@@ -41,10 +44,11 @@ function TreeShell({
   setMe: (name: string) => void;
   focusedId: string | null;
   setFocusedId: (id: string | null) => void;
+  presenting: boolean;
+  setPresenting: (p: boolean) => void;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ViewFilter>({});
-  const [presenting, setPresenting] = useState(false);
 
   return (
     <>
@@ -109,6 +113,7 @@ function AppShell() {
   const { board } = useBoard();
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [presenting, setPresenting] = useState(false);
   const [me, setMeState] = useState<string>(() => localStorage.getItem(ME_KEY) ?? "");
   const setMe = (name: string) => {
     setMeState(name);
@@ -127,6 +132,7 @@ function AppShell() {
     <ReactFlowProvider>
       <Shortcuts focusedId={focusedId} setFocusedId={setFocusedId} />
       <HashImport />
+      <CommandPalette theme={theme} onToggleTheme={onToggleTheme} onPresent={() => setPresenting(true)} />
       <div className="app">
         {board.kind === "whiteboard" ? (
           <WhiteboardShell theme={theme} onToggleTheme={onToggleTheme} me={me} setMe={setMe} />
@@ -138,6 +144,8 @@ function AppShell() {
             setMe={setMe}
             focusedId={focusedId}
             setFocusedId={setFocusedId}
+            presenting={presenting}
+            setPresenting={setPresenting}
           />
         )}
         <CollabBar />

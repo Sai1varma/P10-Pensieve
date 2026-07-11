@@ -786,6 +786,137 @@ body {
   pointer-events: auto;
 }
 
+/* ---------- shared small utilities (used by SidePanel + InsightsPanel) ---------- */
+.dot {
+  display: inline-block;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid var(--edge);
+}
+.empty {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 8px 0;
+}
+
+/* ---------- insights panel ---------- */
+.insights-modal {
+  width: min(480px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.insights-total {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.insights-section + .insights-section {
+  margin-top: 18px;
+}
+.insights-heading {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.insights-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.insights-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+button.insights-row-btn {
+  width: 100%;
+  background: transparent;
+  border: none;
+  font: inherit;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+button.insights-row-btn:hover {
+  background: var(--surface);
+}
+.insights-row-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.insights-muted {
+  color: var(--muted);
+  font-style: italic;
+}
+.insights-count {
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* ---------- command palette ---------- */
+.palette-modal {
+  width: min(560px, 92vw);
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 8px;
+}
+.palette-modal .modal-input {
+  margin-bottom: 8px;
+}
+.palette-list {
+  overflow-y: auto;
+}
+.palette-heading {
+  padding: 8px 8px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.palette-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.palette-row-active {
+  background: var(--surface);
+}
+.palette-row-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.palette-row-sub {
+  flex: none;
+  font-size: 11px;
+  color: var(--muted);
+}
+
 /* ---------- color palette popover ---------- */
 .palette {
   position: absolute;

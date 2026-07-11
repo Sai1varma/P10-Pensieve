@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useReactFlow } from "@xyflow/react";
-import { useBoard, parseImported } from "../board/store";
-import { toMarkdown, downloadText, buildShareUrl } from "../board/io";
+import { useBoard } from "../board/store";
+import { toMarkdown, downloadText } from "../board/io";
+import { exportJson as exportJsonShared, importJsonFile, exportPng as exportPngShared, copyShareLink as copyShareLinkShared } from "../board/exportShared";
 import { STATUS_META, STATUS_ORDER, type Theme, type TreeBoard, type ViewFilter } from "../board/types";
 import { BoardSwitcher } from "./BoardSwitcher";
 
@@ -67,27 +68,15 @@ export function Toolbar({
     setTimeout(() => fitView({ nodes: [{ id: b.id }], duration: 500, padding: 0.6, maxZoom: 1.4 }), 130);
   };
 
-  const exportJson = () => {
-    const blob = new Blob([JSON.stringify(board, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "block-board.json";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const exportJson = () => exportJsonShared(board);
 
   const importJson = async (file: File) => {
-    try {
-      const parsed = parseImported(JSON.parse(await file.text()));
-      if (!parsed) {
-        alert("That file isn't a valid block-board export.");
-        return;
-      }
-      dispatch({ type: "import", board: parsed });
-    } catch {
-      alert("Could not read that file as JSON.");
+    const parsed = await importJsonFile(file);
+    if (!parsed) {
+      alert("That file isn't a valid block-board export.");
+      return;
     }
+    dispatch({ type: "import", board: parsed });
   };
 
   const importExcel = async (file: File) => {
@@ -105,35 +94,9 @@ export function Toolbar({
 
   const exportMarkdown = () => downloadText("block-board.md", toMarkdown(board), "text/markdown");
 
-  const exportPng = async () => {
-    const vp = document.querySelector<HTMLElement>(".react-flow__viewport");
-    if (!vp) return;
-    try {
-      const { toPng } = await import("html-to-image");
-      const bg = getComputedStyle(document.body).backgroundColor || "#0b0f17";
-      const dataUrl = await toPng(vp, { backgroundColor: bg, pixelRatio: 2 });
-      const a = document.createElement("a");
-      a.href = dataUrl;
-      a.download = "block-board.png";
-      a.click();
-    } catch {
-      alert("Could not render the board to an image.");
-    }
-  };
+  const exportPng = () => exportPngShared();
 
-  const copyShareLink = async () => {
-    const url = buildShareUrl(board);
-    if (!url) {
-      alert("This board is too large to share via link — use Export instead.");
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(url);
-      alert("Share link copied to clipboard.");
-    } catch {
-      prompt("Copy this share link:", url);
-    }
-  };
+  const copyShareLink = () => copyShareLinkShared(board);
 
   const filterActive = !!filter.status || !!filter.tag;
   const [menuOpen, setMenuOpen] = useState(false);

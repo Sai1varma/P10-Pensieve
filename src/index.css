@@ -702,6 +702,90 @@ body {
   border: none;
 }
 
+/* ---------- whiteboard card ---------- */
+.wb-canvas-wrap {
+  background: var(--bg);
+}
+.wb-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  box-shadow: var(--node-shadow);
+  overflow: hidden;
+  transition: box-shadow 0.15s, filter 0.15s;
+}
+.wb-card:hover {
+  filter: brightness(1.04);
+  box-shadow: var(--shadow);
+}
+.wb-card-selected {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.wb-card-image {
+  width: 100%;
+  max-height: 55%;
+  object-fit: cover;
+  flex: none;
+}
+.wb-card-body {
+  flex: 1;
+  min-height: 0;
+  padding: 12px 14px;
+  cursor: text;
+  overflow: auto;
+}
+.wb-card-text {
+  font-size: 14px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.wb-card-placeholder {
+  opacity: 0.55;
+  font-style: italic;
+}
+.wb-card-input {
+  width: 100%;
+  height: 100%;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.35;
+  color: inherit;
+  background: rgba(127, 127, 127, 0.15);
+  border: none;
+  border-radius: 8px;
+  padding: 4px 6px;
+  resize: none;
+  outline: 2px solid var(--accent);
+}
+.wb-card-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s;
+  z-index: 6;
+}
+.wb-card:hover .wb-card-actions,
+.wb-card-selected .wb-card-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 /* ---------- color palette popover ---------- */
 .palette {
   position: absolute;

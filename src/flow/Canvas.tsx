@@ -31,7 +31,12 @@ interface View {
   isMatch: (id: string) => boolean;
 }
 
-function makeData(board: TreeBoard, id: string, view: View): BlockNodeData {
+function makeData(
+  board: TreeBoard,
+  id: string,
+  view: View,
+  focusByNode: Record<string, string[]>
+): BlockNodeData {
   const b = board.blocks[id];
   return {
     blockId: id,
@@ -48,6 +53,7 @@ function makeData(board: TreeBoard, id: string, view: View): BlockNodeData {
     hasNote: !!(b.note && b.note.trim()),
     match: view.active && view.isMatch(id),
     dim: view.active && !view.isMatch(id),
+    peerNames: focusByNode[id] ?? [],
   };
 }
 
@@ -83,10 +89,12 @@ export function Canvas({
   onNodeFocus,
   query = "",
   filter = {},
+  focusByNode = {},
 }: {
   onNodeFocus: (id: string) => void;
   query?: string;
   filter?: ViewFilter;
+  focusByNode?: Record<string, string[]>;
 }) {
   // Canvas is only ever mounted for tree boards (App.tsx branches by board.kind).
   const { board: rawBoard, dispatch } = useBoard();
@@ -182,7 +190,7 @@ export function Canvas({
           id,
           type: "block",
           position: pos[id] ?? { x: 0, y: 0 },
-          data: makeData(board, id, view),
+          data: makeData(board, id, view, focusByNode),
         }))
       );
 
@@ -226,11 +234,11 @@ export function Canvas({
         nds.map((n) => {
           const b = board.blocks[n.id];
           const stored = b && b.x != null && b.y != null ? { x: b.x, y: b.y } : null;
-          return { ...n, data: makeData(board, n.id, view), position: stored ?? n.position };
+          return { ...n, data: makeData(board, n.id, view, focusByNode), position: stored ?? n.position };
         })
       );
     }
-  }, [board, dispatch, setNodes, runFit, fitView, view]);
+  }, [board, dispatch, setNodes, runFit, fitView, view, focusByNode]);
 
   const onNodeDragStop = useCallback<OnNodeDrag>(
     (_e, node) => {

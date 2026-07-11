@@ -19,6 +19,8 @@ export interface BlockNodeData {
   hasNote: boolean;
   match?: boolean;
   dim?: boolean;
+  /** Names of other live-collab peers who currently have this node open. */
+  peerNames?: string[];
   [key: string]: unknown;
 }
 
@@ -58,6 +60,16 @@ function BlockNodeImpl({ data, selected }: NodeProps) {
         borderColor: d.color ? "transparent" : "var(--edge)",
       }}
     >
+      {d.peerNames && d.peerNames.length > 0 && (
+        <div className="peer-badge" title={`Viewing: ${d.peerNames.join(", ")}`}>
+          {d.peerNames
+            .slice(0, 3)
+            .map((n) => n.trim()[0]?.toUpperCase() || "?")
+            .join("")}
+          {d.peerNames.length > 3 ? "+" : ""}
+        </div>
+      )}
+
       <Handle type="target" position={Position.Left} className="handle" />
 
       <div className="node-body" onDoubleClick={() => setEditing(true)}>

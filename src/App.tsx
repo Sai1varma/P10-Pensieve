@@ -4,6 +4,7 @@ import { BoardProvider, useBoard } from "./board/store";
 import { Shortcuts } from "./board/Shortcuts";
 import { HashImport } from "./board/HashImport";
 import { CollabBar } from "./components/CollabBar";
+import { useCollab } from "./collab/useCollab";
 import { THEME_KEY, ME_KEY, type Theme, type ViewFilter } from "./board/types";
 import { Canvas } from "./flow/Canvas";
 import { Toolbar } from "./components/Toolbar";
@@ -37,6 +38,7 @@ function TreeShell({
   setFocusedId,
   presenting,
   setPresenting,
+  focusByNode,
 }: {
   theme: Theme;
   onToggleTheme: () => void;
@@ -46,6 +48,7 @@ function TreeShell({
   setFocusedId: (id: string | null) => void;
   presenting: boolean;
   setPresenting: (p: boolean) => void;
+  focusByNode: Record<string, string[]>;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ViewFilter>({});
@@ -64,7 +67,7 @@ function TreeShell({
         setMe={setMe}
       />
       <div className="workspace">
-        <Canvas onNodeFocus={setFocusedId} query={query} filter={filter} />
+        <Canvas onNodeFocus={setFocusedId} query={query} filter={filter} focusByNode={focusByNode} />
         {focusedId && (
           <Suspense fallback={null}>
             <SidePanel
@@ -128,6 +131,10 @@ function AppShell() {
 
   const onToggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
 
+  // Lifted here (rather than inside CollabBar) so Canvas can also read
+  // focusByNode without opening a second realtime channel for the same board.
+  const collab = useCollab(focusedId);
+
   return (
     <ReactFlowProvider>
       <Shortcuts focusedId={focusedId} setFocusedId={setFocusedId} />
@@ -146,9 +153,10 @@ function AppShell() {
             setFocusedId={setFocusedId}
             presenting={presenting}
             setPresenting={setPresenting}
+            focusByNode={collab.focusByNode}
           />
         )}
-        <CollabBar />
+        <CollabBar collab={collab} />
       </div>
     </ReactFlowProvider>
   );

@@ -671,6 +671,27 @@ body {
   color: var(--text);
 }
 
+/* live-collab presence: who else has this node open */
+.peer-badge {
+  position: absolute;
+  left: -10px;
+  top: -10px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  border: 2px solid var(--bg);
+  background: #8b5cf6;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: var(--node-shadow);
+  z-index: 3;
+}
+
 /* collapse / expand toggle */
 .collapse-toggle {
   position: absolute;

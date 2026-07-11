@@ -11,6 +11,9 @@ export interface CollabState {
   status: CollabStatus;
   peers: number;
   peerNames: string[];
+  /** Which other peers (by name) currently have each node focused, keyed by
+   *  block id. Excludes your own presence entry. Tree boards only for now. */
+  focusByNode: Record<string, string[]>;
   boardId: string | null;
   email: string | null;
   goLive: () => Promise<void>;
@@ -28,7 +31,7 @@ function boardIdFromUrl(): string | null {
  * inert (status "off"/"local") when Supabase isn't configured; local editing
  * never requires a login.
  */
-export function useCollab(): CollabState {
+export function useCollab(focusedId: string | null = null): CollabState {
   const { board, applyRemoteBoard } = useBoard();
   const [boardId, setBoardId] = useState<string | null>(boardIdFromUrl);
   const [session, setSession] = useState<Session | null>(null);
@@ -37,6 +40,7 @@ export function useCollab(): CollabState {
   );
   const [peers, setPeers] = useState(0);
   const [peerNames, setPeerNames] = useState<string[]>([]);
+  const [focusByNode, setFocusByNode] = useState<Record<string, string[]>>({});
 
   const channelRef = useRef<RealtimeChannel | null>(null);
   const lastRemoteRef = useRef<string | null>(null); // updated_at we last applied
@@ -98,10 +102,23 @@ export function useCollab(): CollabState {
           }
         )
         .on("presence", { event: "sync" }, () => {
-          const state = channel.presenceState() as Record<string, Array<{ name?: string }>>;
+          const state = channel.presenceState() as Record<
+            string,
+            Array<{ name?: string; focusedId?: string }>
+          >;
           const keys = Object.keys(state);
           setPeers(keys.length);
           setPeerNames(keys.map((k) => state[k]?.[0]?.name || "Guest"));
+
+          const byNode: Record<string, string[]> = {};
+          for (const k of keys) {
+            if (k === SESSION_ID) continue; // don't show your own focus back to yourself
+            const entry = state[k]?.[0];
+            if (!entry?.focusedId) continue;
+            const name = entry.name || "Guest";
+            (byNode[entry.focusedId] ??= []).push(name);
+          }
+          setFocusByNode(byNode);
         })
         .subscribe(async (s) => {
           if (s === "SUBSCRIBED") {
@@ -109,6 +126,7 @@ export function useCollab(): CollabState {
             await channel.track({
               id: SESSION_ID,
               name: session.user.email || localStorage.getItem(ME_KEY) || "Guest",
+              focusedId: focusedId ?? undefined,
             });
           }
         });
@@ -123,6 +141,18 @@ export function useCollab(): CollabState {
       }
     };
   }, [boardId, session, applyRemoteBoard]);
+
+  // Re-broadcast presence when the locally focused node changes, without
+  // tearing down and reconnecting the whole channel.
+  useEffect(() => {
+    const channel = channelRef.current;
+    if (!channel || status !== "live" || !session) return;
+    channel.track({
+      id: SESSION_ID,
+      name: session.user.email || localStorage.getItem(ME_KEY) || "Guest",
+      focusedId: focusedId ?? undefined,
+    });
+  }, [focusedId, status, session]);
 
   // Debounced upsert of local changes while live.
   useEffect(() => {
@@ -177,6 +207,7 @@ export function useCollab(): CollabState {
     setStatus(isCollabConfigured() ? "local" : "off");
     setPeers(0);
     setPeerNames([]);
+    setFocusByNode({});
   }, []);
 
   const signOut = useCallback(async () => {
@@ -188,6 +219,7 @@ export function useCollab(): CollabState {
     status,
     peers,
     peerNames,
+    focusByNode,
     boardId,
     email: session?.user.email ?? null,
     goLive,

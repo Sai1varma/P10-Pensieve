@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { useCollab } from "../collab/useCollab";
+import type { CollabState } from "../collab/useCollab";
 import { AuthGate } from "./AuthGate";
 
 /** Floating chip showing collaboration + auth status. Hidden entirely when
- *  Supabase isn't configured. */
-export function CollabBar() {
-  const { status, peers, peerNames, email, goLive, leave, signOut } = useCollab();
+ *  Supabase isn't configured. `collab` is lifted to AppShell (rather than
+ *  called here) so Canvas can also read its focusByNode for presence
+ *  indicators, without opening a second realtime channel. */
+export function CollabBar({ collab }: { collab: CollabState }) {
+  const { status, peers, peerNames, email, goLive, leave, signOut } = collab;
   const [showGate, setShowGate] = useState(false);
 
   if (status === "off") return null;

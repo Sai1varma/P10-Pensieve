@@ -97,7 +97,7 @@ export function Canvas({
   focusByNode?: Record<string, string[]>;
 }) {
   // Canvas is only ever mounted for tree boards (App.tsx branches by board.kind).
-  const { board: rawBoard, dispatch } = useBoard();
+  const { board: rawBoard, dispatch, viewOnly } = useBoard();
   const board = rawBoard as TreeBoard;
   const { fitView } = useReactFlow();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
@@ -268,6 +268,7 @@ export function Canvas({
         onNodesChange={onNodesChange}
         onNodeDragStop={onNodeDragStop}
         onNodeClick={(_e, node) => onNodeFocus(node.id)}
+        nodesDraggable={!viewOnly}
         fitView
         minZoom={0.05}
         maxZoom={2}
@@ -275,37 +276,41 @@ export function Canvas({
         proOptions={{ hideAttribution: true }}
       >
         <Panel position="top-right" className="canvas-panel">
-          <button className="tbtn" onClick={tidy}>
-            Tidy up
-          </button>
+          {!viewOnly && (
+            <>
+              <button className="tbtn" onClick={tidy}>
+                Tidy up
+              </button>
+              <button className="tbtn" onClick={() => dispatch({ type: "expandAll" })}>
+                Expand all
+              </button>
+              <button className="tbtn" onClick={() => dispatch({ type: "collapseAll" })}>
+                Collapse all
+              </button>
+              <select
+                className="filter-select"
+                value=""
+                title="Show levels down to…"
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (!v) return;
+                  if (v === "all") dispatch({ type: "expandAll" });
+                  else dispatch({ type: "collapseToDepth", depth: Number(v) });
+                }}
+              >
+                <option value="">Levels…</option>
+                <option value="all">Show all</option>
+                {Array.from({ length: maxDepth }, (_, k) => k + 1).map((n) => (
+                  <option key={n} value={n}>
+                    Level {n}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
           <button className="tbtn" onClick={runFit}>
             Fit
           </button>
-          <button className="tbtn" onClick={() => dispatch({ type: "expandAll" })}>
-            Expand all
-          </button>
-          <button className="tbtn" onClick={() => dispatch({ type: "collapseAll" })}>
-            Collapse all
-          </button>
-          <select
-            className="filter-select"
-            value=""
-            title="Show levels down to…"
-            onChange={(e) => {
-              const v = e.target.value;
-              if (!v) return;
-              if (v === "all") dispatch({ type: "expandAll" });
-              else dispatch({ type: "collapseToDepth", depth: Number(v) });
-            }}
-          >
-            <option value="">Levels…</option>
-            <option value="all">Show all</option>
-            {Array.from({ length: maxDepth }, (_, k) => k + 1).map((n) => (
-              <option key={n} value={n}>
-                Level {n}
-              </option>
-            ))}
-          </select>
         </Panel>
         <Background variant={BackgroundVariant.Dots} gap={22} size={1.5} color="var(--dots)" />
         <MiniMap pannable zoomable nodeColor={(n) => (n.data as BlockNodeData).color ?? "var(--edge)"} />

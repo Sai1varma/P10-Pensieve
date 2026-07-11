@@ -938,6 +938,26 @@ button.insights-row-btn:hover {
   color: var(--muted);
 }
 
+/* ---------- view-only share link header ---------- */
+.view-only-badge {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(139, 92, 246, 0.16);
+  color: #8b5cf6;
+  font-size: 11px;
+  font-weight: 700;
+}
+.view-only-name {
+  flex: none;
+  color: var(--muted);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 260px;
+}
+
 /* ---------- color palette popover ---------- */
 .palette {
   position: absolute;

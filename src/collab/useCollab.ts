@@ -15,6 +15,10 @@ export interface CollabState {
    *  block id. Excludes your own presence entry. Tree boards only for now. */
   focusByNode: Record<string, string[]>;
   boardId: string | null;
+  /** The shared board's own `name` column -- the local multi-board registry
+   *  doesn't have an entry for it, so this is the only reliable label for a
+   *  view-only session's header. */
+  sharedBoardName: string | null;
   email: string | null;
   goLive: () => Promise<void>;
   leave: () => void;
@@ -27,11 +31,12 @@ function boardIdFromUrl(): string | null {
 
 /**
  * Live collaboration over Supabase, gated by magic-link auth (RLS requires an
- * authenticated user). Whole-board last-write-wins with presence. Completely
- * inert (status "off"/"local") when Supabase isn't configured; local editing
- * never requires a login.
+ * authenticated user) -- except for `viewOnly` (anonymous read-only share
+ * links), which skip the auth requirement and never write. Whole-board
+ * last-write-wins with presence. Completely inert (status "off"/"local")
+ * when Supabase isn't configured; local editing never requires a login.
  */
-export function useCollab(focusedId: string | null = null): CollabState {
+export function useCollab(focusedId: string | null = null, viewOnly = false): CollabState {
   const { board, applyRemoteBoard } = useBoard();
   const [boardId, setBoardId] = useState<string | null>(boardIdFromUrl);
   const [session, setSession] = useState<Session | null>(null);
@@ -41,6 +46,7 @@ export function useCollab(focusedId: string | null = null): CollabState {
   const [peers, setPeers] = useState(0);
   const [peerNames, setPeerNames] = useState<string[]>([]);
   const [focusByNode, setFocusByNode] = useState<Record<string, string[]>>({});
+  const [sharedBoardName, setSharedBoardName] = useState<string | null>(null);
 
   const channelRef = useRef<RealtimeChannel | null>(null);
   const lastRemoteRef = useRef<string | null>(null); // updated_at we last applied
@@ -62,7 +68,7 @@ export function useCollab(focusedId: string | null = null): CollabState {
   useEffect(() => {
     const sb = getSupabase();
     if (!sb || !boardId) return;
-    if (!session) {
+    if (!session && !viewOnly) {
       setStatus("needs-auth"); // shared board requested but not signed in
       return;
     }
@@ -73,7 +79,7 @@ export function useCollab(focusedId: string | null = null): CollabState {
     (async () => {
       const { data, error } = await sb
         .from("boards")
-        .select("data, updated_at")
+        .select("data, updated_at, name")
         .eq("id", boardId)
         .single();
       if (cancelled) return;
@@ -81,6 +87,7 @@ export function useCollab(focusedId: string | null = null): CollabState {
         setStatus("error");
         return;
       }
+      setSharedBoardName(data?.name ?? null);
       if (data?.data) {
         skipUpsertRef.current = true;
         lastRemoteRef.current = data.updated_at;
@@ -123,11 +130,15 @@ export function useCollab(focusedId: string | null = null): CollabState {
         .subscribe(async (s) => {
           if (s === "SUBSCRIBED") {
             setStatus("live");
-            await channel.track({
-              id: SESSION_ID,
-              name: session.user.email || localStorage.getItem(ME_KEY) || "Guest",
-              focusedId: focusedId ?? undefined,
-            });
+            // Anonymous view-only visitors have no session/name to announce
+            // and never edit, so there's nothing meaningful to track.
+            if (!viewOnly && session) {
+              await channel.track({
+                id: SESSION_ID,
+                name: session.user.email || localStorage.getItem(ME_KEY) || "Guest",
+                focusedId: focusedId ?? undefined,
+              });
+            }
           }
         });
       channelRef.current = channel;
@@ -140,24 +151,26 @@ export function useCollab(focusedId: string | null = null): CollabState {
         channelRef.current = null;
       }
     };
-  }, [boardId, session, applyRemoteBoard]);
+  }, [boardId, session, viewOnly, applyRemoteBoard]);
 
   // Re-broadcast presence when the locally focused node changes, without
   // tearing down and reconnecting the whole channel.
   useEffect(() => {
     const channel = channelRef.current;
-    if (!channel || status !== "live" || !session) return;
+    if (!channel || status !== "live" || !session || viewOnly) return;
     channel.track({
       id: SESSION_ID,
       name: session.user.email || localStorage.getItem(ME_KEY) || "Guest",
       focusedId: focusedId ?? undefined,
     });
-  }, [focusedId, status, session]);
+  }, [focusedId, status, session, viewOnly]);
 
-  // Debounced upsert of local changes while live.
+  // Debounced upsert of local changes while live. Never for view-only
+  // sessions -- the anon RLS policy only grants SELECT, so this would fail
+  // anyway, but skipping it outright avoids the pointless request/error.
   useEffect(() => {
     const sb = getSupabase();
-    if (!sb || !boardId || status !== "live") return;
+    if (!sb || !boardId || status !== "live" || viewOnly) return;
     if (skipUpsertRef.current) {
       skipUpsertRef.current = false; // this change came from a remote import
       return;
@@ -171,7 +184,7 @@ export function useCollab(focusedId: string | null = null): CollabState {
     return () => {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
     };
-  }, [board, boardId, status]);
+  }, [board, boardId, status, viewOnly]);
 
   const goLive = useCallback(async () => {
     const sb = getSupabase();
@@ -208,6 +221,7 @@ export function useCollab(focusedId: string | null = null): CollabState {
     setPeers(0);
     setPeerNames([]);
     setFocusByNode({});
+    setSharedBoardName(null);
   }, []);
 
   const signOut = useCallback(async () => {
@@ -221,6 +235,7 @@ export function useCollab(focusedId: string | null = null): CollabState {
     peerNames,
     focusByNode,
     boardId,
+    sharedBoardName,
     email: session?.user.email ?? null,
     goLive,
     leave,

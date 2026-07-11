@@ -28,6 +28,45 @@ function initialTheme(): Theme {
     : "dark";
 }
 
+/** ?board=<id>&view=1 -- anonymous, read-only, no editing UI at all. */
+function viewOnlyFromUrl(): boolean {
+  const params = new URLSearchParams(location.search);
+  return params.get("view") === "1" && !!params.get("board");
+}
+
+/** Minimal header + canvas for a view-only share link: no BoardSwitcher (this
+ *  isn't the viewer's own board list), no undo/redo/export/edit affordances.
+ *  Dispatch is already a global no-op in this mode (BoardProvider), so this
+ *  is about not showing controls that would look interactive but do nothing. */
+function ViewOnlyShell({
+  theme,
+  onToggleTheme,
+  sharedBoardName,
+  isWhiteboard,
+}: {
+  theme: Theme;
+  onToggleTheme: () => void;
+  sharedBoardName: string | null;
+  isWhiteboard: boolean;
+}) {
+  return (
+    <>
+      <header className="toolbar">
+        <h1 className="brand">P10 Pensieve</h1>
+        <span className="view-only-badge">👁 View only</span>
+        <span className="view-only-name">{sharedBoardName ?? "Shared board"}</span>
+        <div className="spacer" />
+        <button className="tbtn" onClick={onToggleTheme} title="Toggle light / dark">
+          {theme === "dark" ? "☀ Light" : "☾ Dark"}
+        </button>
+      </header>
+      <div className="workspace">
+        {isWhiteboard ? <WhiteboardCanvas /> : <Canvas onNodeFocus={() => {}} />}
+      </div>
+    </>
+  );
+}
+
 /** Renders the tree (mind-map) shell: Toolbar + Canvas + SidePanel + Present. */
 function TreeShell({
   theme,
@@ -112,7 +151,7 @@ function WhiteboardShell({
   );
 }
 
-function AppShell() {
+function AppShell({ viewOnly }: { viewOnly: boolean }) {
   const { board } = useBoard();
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [focusedId, setFocusedId] = useState<string | null>(null);
@@ -133,15 +172,24 @@ function AppShell() {
 
   // Lifted here (rather than inside CollabBar) so Canvas can also read
   // focusByNode without opening a second realtime channel for the same board.
-  const collab = useCollab(focusedId);
+  const collab = useCollab(focusedId, viewOnly);
 
   return (
     <ReactFlowProvider>
       <Shortcuts focusedId={focusedId} setFocusedId={setFocusedId} />
       <HashImport />
-      <CommandPalette theme={theme} onToggleTheme={onToggleTheme} onPresent={() => setPresenting(true)} />
+      {!viewOnly && (
+        <CommandPalette theme={theme} onToggleTheme={onToggleTheme} onPresent={() => setPresenting(true)} />
+      )}
       <div className="app">
-        {board.kind === "whiteboard" ? (
+        {viewOnly ? (
+          <ViewOnlyShell
+            theme={theme}
+            onToggleTheme={onToggleTheme}
+            sharedBoardName={collab.sharedBoardName}
+            isWhiteboard={board.kind === "whiteboard"}
+          />
+        ) : board.kind === "whiteboard" ? (
           <WhiteboardShell theme={theme} onToggleTheme={onToggleTheme} me={me} setMe={setMe} />
         ) : (
           <TreeShell
@@ -156,16 +204,17 @@ function AppShell() {
             focusByNode={collab.focusByNode}
           />
         )}
-        <CollabBar collab={collab} />
+        {!viewOnly && <CollabBar collab={collab} />}
       </div>
     </ReactFlowProvider>
   );
 }
 
 export default function App() {
+  const viewOnly = viewOnlyFromUrl();
   return (
-    <BoardProvider>
-      <AppShell />
+    <BoardProvider viewOnly={viewOnly}>
+      <AppShell viewOnly={viewOnly} />
     </BoardProvider>
   );
 }

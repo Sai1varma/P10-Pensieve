@@ -724,6 +724,11 @@ interface Store {
   canUndo: boolean;
   canRedo: boolean;
   saved: boolean;
+  /** True for anonymous read-only share links (?board=&view=1). When true,
+   *  `dispatch` above is a no-op -- every UI affordance stays wired up but
+   *  can't actually mutate the board, so there's nowhere edit access could
+   *  leak in from a missed button. */
+  viewOnly: boolean;
 
   boards: BoardIndexEntry[];
   currentBoardId: ID;
@@ -745,7 +750,13 @@ interface Store {
 
 const BoardContext = createContext<Store | null>(null);
 
-export function BoardProvider({ children }: { children: ReactNode }) {
+export function BoardProvider({
+  children,
+  viewOnly = false,
+}: {
+  children: ReactNode;
+  viewOnly?: boolean;
+}) {
   const [index, setIndex] = useState<BoardIndexEntry[]>(() => migrateToIndex());
   const [currentBoardId, setCurrentBoardId] = useState<ID>(
     () => localStorage.getItem(ACTIVE_KEY) ?? index[0].id
@@ -912,14 +923,20 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  // Real `dispatch` above is what applyRemoteBoard uses to apply incoming
+  // live-collab updates -- that must keep working in view-only mode. Only
+  // the dispatch handed to UI components (below) is neutralized.
+  const noopDispatch = useCallback((() => {}) as React.Dispatch<Action>, []);
+
   return (
     <BoardContext.Provider
       value={{
         board,
-        dispatch: dispatch as React.Dispatch<Action>,
-        canUndo: state.past.length > 0,
-        canRedo: state.future.length > 0,
+        dispatch: viewOnly ? noopDispatch : (dispatch as React.Dispatch<Action>),
+        canUndo: !viewOnly && state.past.length > 0,
+        canRedo: !viewOnly && state.future.length > 0,
         saved,
+        viewOnly,
         boards: index,
         currentBoardId,
         createBoard,

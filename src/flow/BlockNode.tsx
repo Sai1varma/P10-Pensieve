@@ -26,7 +26,7 @@ export interface BlockNodeData {
 
 function BlockNodeImpl({ data, selected }: NodeProps) {
   const d = data as BlockNodeData;
-  const { dispatch } = useBoard();
+  const { dispatch, viewOnly } = useBoard();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(d.text);
   const [showPalette, setShowPalette] = useState(false);
@@ -72,7 +72,7 @@ function BlockNodeImpl({ data, selected }: NodeProps) {
 
       <Handle type="target" position={Position.Left} className="handle" />
 
-      <div className="node-body" onDoubleClick={() => setEditing(true)}>
+      <div className="node-body" onDoubleClick={() => !viewOnly && setEditing(true)}>
         {editing ? (
           <textarea
             ref={ref}
@@ -133,60 +133,62 @@ function BlockNodeImpl({ data, selected }: NodeProps) {
         </div>
       )}
 
-      <div
-        className="node-actions nodrag"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          className="node-btn"
-          title="Color"
-          onClick={() => setShowPalette((s) => !s)}
+      {!viewOnly && (
+        <div
+          className="node-actions nodrag"
+          onClick={(e) => e.stopPropagation()}
         >
-          ●
-        </button>
-        {!d.isRoot && (
           <button
             className="node-btn"
-            title="Upvote"
-            onClick={() => dispatch({ type: "vote", id: d.blockId, delta: 1 })}
+            title="Color"
+            onClick={() => setShowPalette((s) => !s)}
           >
-            ▲
+            ●
           </button>
-        )}
-        <button
-          className="node-btn"
-          title="Add child"
-          onClick={() =>
-            dispatch({ type: "addChild", parentId: d.blockId })
-          }
-        >
-          ＋
-        </button>
-        {!d.isRoot && (
-          <>
+          {!d.isRoot && (
             <button
               className="node-btn"
-              title="Add sibling"
-              onClick={() => dispatch({ type: "addSibling", siblingId: d.blockId })}
+              title="Upvote"
+              onClick={() => dispatch({ type: "vote", id: d.blockId, delta: 1 })}
             >
-              ↳
+              ▲
             </button>
-            <button
-              className="node-btn"
-              title="Delete (and its children)"
-              onClick={() => {
-                if (
-                  d.hiddenCount === 0 ||
-                  confirm("Delete this block and all its children?")
-                )
-                  dispatch({ type: "delete", id: d.blockId });
-              }}
-            >
-              ×
-            </button>
-          </>
-        )}
-      </div>
+          )}
+          <button
+            className="node-btn"
+            title="Add child"
+            onClick={() =>
+              dispatch({ type: "addChild", parentId: d.blockId })
+            }
+          >
+            ＋
+          </button>
+          {!d.isRoot && (
+            <>
+              <button
+                className="node-btn"
+                title="Add sibling"
+                onClick={() => dispatch({ type: "addSibling", siblingId: d.blockId })}
+              >
+                ↳
+              </button>
+              <button
+                className="node-btn"
+                title="Delete (and its children)"
+                onClick={() => {
+                  if (
+                    d.hiddenCount === 0 ||
+                    confirm("Delete this block and all its children?")
+                  )
+                    dispatch({ type: "delete", id: d.blockId });
+                }}
+              >
+                ×
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {showPalette && (
         <div className="nodrag">
@@ -198,7 +200,7 @@ function BlockNodeImpl({ data, selected }: NodeProps) {
         </div>
       )}
 
-      {d.hasChildren && (
+      {d.hasChildren && !viewOnly && (
         <button
           className="collapse-toggle nodrag"
           title={d.collapsed ? "Expand" : "Collapse"}

@@ -15,7 +15,7 @@ export interface WhiteboardCardData {
 
 function WhiteboardCardNodeImpl({ data, selected }: NodeProps) {
   const d = data as WhiteboardCardData;
-  const { dispatch } = useBoard();
+  const { dispatch, viewOnly } = useBoard();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(d.text);
   const [showPalette, setShowPalette] = useState(false);
@@ -44,19 +44,21 @@ function WhiteboardCardNodeImpl({ data, selected }: NodeProps) {
         borderColor: d.color ? "transparent" : "var(--edge)",
       }}
     >
-      <NodeResizer
-        isVisible={selected}
-        minWidth={160}
-        minHeight={100}
-        onResizeEnd={(_e, params) => {
-          dispatch({ type: "resizeCard", id: d.cardId, width: params.width, height: params.height });
-          dispatch({ type: "moveCard", id: d.cardId, x: params.x, y: params.y });
-        }}
-      />
+      {!viewOnly && (
+        <NodeResizer
+          isVisible={selected}
+          minWidth={160}
+          minHeight={100}
+          onResizeEnd={(_e, params) => {
+            dispatch({ type: "resizeCard", id: d.cardId, width: params.width, height: params.height });
+            dispatch({ type: "moveCard", id: d.cardId, x: params.x, y: params.y });
+          }}
+        />
+      )}
 
       {d.image && <img className="wb-card-image nodrag" src={d.image} alt="" draggable={false} />}
 
-      <div className="wb-card-body" onDoubleClick={() => setEditing(true)}>
+      <div className="wb-card-body" onDoubleClick={() => !viewOnly && setEditing(true)}>
         {editing ? (
           <textarea
             ref={ref}
@@ -82,28 +84,30 @@ function WhiteboardCardNodeImpl({ data, selected }: NodeProps) {
         )}
       </div>
 
-      <div className="wb-card-actions nodrag" onClick={(e) => e.stopPropagation()}>
-        <button className="node-btn" title="Color" onClick={() => setShowPalette((s) => !s)}>
-          ●
-        </button>
-        <button className="node-btn" title="Image" onClick={() => d.onRequestImage(d.cardId)}>
-          🖼
-        </button>
-        <button
-          className="node-btn"
-          title="Duplicate"
-          onClick={() => dispatch({ type: "duplicateCard", id: d.cardId })}
-        >
-          ⧉
-        </button>
-        <button
-          className="node-btn"
-          title="Delete"
-          onClick={() => dispatch({ type: "deleteCard", id: d.cardId })}
-        >
-          ×
-        </button>
-      </div>
+      {!viewOnly && (
+        <div className="wb-card-actions nodrag" onClick={(e) => e.stopPropagation()}>
+          <button className="node-btn" title="Color" onClick={() => setShowPalette((s) => !s)}>
+            ●
+          </button>
+          <button className="node-btn" title="Image" onClick={() => d.onRequestImage(d.cardId)}>
+            🖼
+          </button>
+          <button
+            className="node-btn"
+            title="Duplicate"
+            onClick={() => dispatch({ type: "duplicateCard", id: d.cardId })}
+          >
+            ⧉
+          </button>
+          <button
+            className="node-btn"
+            title="Delete"
+            onClick={() => dispatch({ type: "deleteCard", id: d.cardId })}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {showPalette && (
         <div className="nodrag">

@@ -54,7 +54,7 @@ function compressImage(file: File): Promise<string> {
 
 export function WhiteboardCanvas() {
   // WhiteboardCanvas is only ever mounted for whiteboard boards (App.tsx branches by board.kind).
-  const { board: rawBoard, dispatch } = useBoard();
+  const { board: rawBoard, dispatch, viewOnly } = useBoard();
   const board = rawBoard as WhiteboardBoard;
   const { fitView, screenToFlowPosition } = useReactFlow();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
@@ -137,6 +137,7 @@ export function WhiteboardCanvas() {
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onNodeDragStop={onNodeDragStop}
+        nodesDraggable={!viewOnly}
         fitView
         minZoom={0.05}
         maxZoom={2}
@@ -144,9 +145,11 @@ export function WhiteboardCanvas() {
         proOptions={{ hideAttribution: true }}
       >
         <Panel position="top-right" className="canvas-panel">
-          <button className="tbtn" onClick={addCard}>
-            + Add card
-          </button>
+          {!viewOnly && (
+            <button className="tbtn" onClick={addCard}>
+              + Add card
+            </button>
+          )}
           <button className="tbtn" onClick={runFit}>
             Fit
           </button>

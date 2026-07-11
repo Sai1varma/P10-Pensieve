@@ -1,6 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { useBoard } from "../board/store";
-import type { BoardIndexEntry, ID } from "../board/types";
+import {
+  TEMPLATE_META,
+  TEMPLATE_ORDER,
+  type BoardIndexEntry,
+  type BoardKind,
+  type ID,
+  type TemplateId,
+} from "../board/types";
+
+const KIND_OPTIONS: { id: BoardKind; label: string; description: string }[] = [
+  { id: "tree", label: "Mind map", description: "Structured, parent-child brainstorm tree." },
+  { id: "whiteboard", label: "Whiteboard", description: "Freeform cards, no hierarchy — drag anywhere." },
+];
 
 type ModalState =
   | { kind: "new" }
@@ -54,6 +66,7 @@ export function BoardSwitcher() {
                 >
                   <span className={`board-status-dot ${b.cloudStatus}`} />
                   {b.name}
+                  {b.kind === "whiteboard" && <span className="board-kind-badge">Whiteboard</span>}
                 </button>
                 <div className="board-row-actions">
                   <button
@@ -92,7 +105,10 @@ export function BoardSwitcher() {
       </div>
 
       {modal?.kind === "new" && (
-        <NewBoardModal onCreate={(name) => createBoard(name)} onClose={() => setModal(null)} />
+        <NewBoardModal
+          onCreate={(name, kind, templateId) => createBoard(name, kind, templateId)}
+          onClose={() => setModal(null)}
+        />
       )}
       {modal?.kind === "rename" && (
         <RenameBoardModal
@@ -114,12 +130,27 @@ export function BoardSwitcher() {
   );
 }
 
-function NewBoardModal({ onCreate, onClose }: { onCreate: (name: string) => void; onClose: () => void }) {
+function NewBoardModal({
+  onCreate,
+  onClose,
+}: {
+  onCreate: (name: string, kind: BoardKind, templateId: TemplateId) => void;
+  onClose: () => void;
+}) {
   const [name, setName] = useState("");
+  const [nameTouched, setNameTouched] = useState(false);
+  const [kind, setKind] = useState<BoardKind>("tree");
+  const [templateId, setTemplateId] = useState<TemplateId>("blank");
   const submit = () => {
     if (!name.trim()) return;
-    onCreate(name.trim());
+    onCreate(name.trim(), kind, templateId);
     onClose();
+  };
+  const selectTemplate = (id: TemplateId) => {
+    setTemplateId(id);
+    // Suggest the template's name until the user types their own — mirrors
+    // the board switcher's manualName-freezes-auto-derive pattern.
+    if (!nameTouched) setName(id === "blank" ? "" : TEMPLATE_META[id].label);
   };
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -128,16 +159,54 @@ function NewBoardModal({ onCreate, onClose }: { onCreate: (name: string) => void
           ×
         </button>
         <h2 className="modal-title">New board</h2>
+        <div className="template-picker" role="radiogroup" aria-label="Board kind">
+          {KIND_OPTIONS.map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              className="template-option"
+              role="radio"
+              aria-checked={kind === opt.id}
+              onClick={() => setKind(opt.id)}
+            >
+              <span className="template-option-label">{opt.label}</span>
+              <span className="template-option-desc">{opt.description}</span>
+            </button>
+          ))}
+        </div>
         <input
           className="detail-input modal-input"
           placeholder="Board name"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            setNameTouched(true);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") submit();
           }}
           autoFocus
         />
+        {kind === "tree" && (
+          <div className="template-picker" role="radiogroup" aria-label="Starting template">
+            {TEMPLATE_ORDER.map((id) => {
+              const meta = TEMPLATE_META[id];
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  className="template-option"
+                  role="radio"
+                  aria-checked={templateId === id}
+                  onClick={() => selectTemplate(id)}
+                >
+                  <span className="template-option-label">{meta.label}</span>
+                  <span className="template-option-desc">{meta.description}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
         <button className="tbtn modal-send" disabled={!name.trim()} onClick={submit}>
           Create
         </button>

@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { hslHex, type Board, type Block, type ID } from "./types";
+import { hslHex, type Block, type ID, type TreeBoard } from "./types";
 
 // Match the generated palette used elsewhere (types.ts CAT_SAT / CAT_LIGHT).
 const CAT_SAT = 0.62;
@@ -12,7 +12,7 @@ const CAT_LIGHT = 0.45;
  *  - Col C -> details (level 3, newline-separated; inherit color)
  * Blank cells continue the group above. Pillars + elements start collapsed.
  */
-export function excelToBoard(buf: ArrayBuffer, rootTitle = "Imported Board"): Board {
+export function excelToBoard(buf: ArrayBuffer, rootTitle = "Imported Board"): TreeBoard {
   const wb = XLSX.read(buf, { type: "array" });
   const sheetName = wb.SheetNames.includes("C_Opus4.8")
     ? "C_Opus4.8"
@@ -83,5 +83,5 @@ export function excelToBoard(buf: ArrayBuffer, rootTitle = "Imported Board"): Bo
     }
   }
 
-  return { version: 3, rootId: root.id, blocks, members: [] };
+  return { version: 3, kind: "tree", rootId: root.id, blocks, members: [] };
 }

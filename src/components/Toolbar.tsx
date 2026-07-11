@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useReactFlow } from "@xyflow/react";
 import { useBoard, parseImported } from "../board/store";
 import { toMarkdown, downloadText, buildShareUrl } from "../board/io";
-import { STATUS_META, STATUS_ORDER, type Theme, type ViewFilter } from "../board/types";
+import { STATUS_META, STATUS_ORDER, type Theme, type TreeBoard, type ViewFilter } from "../board/types";
 import { BoardSwitcher } from "./BoardSwitcher";
 
 export function Toolbar({
@@ -26,7 +26,9 @@ export function Toolbar({
   me: string;
   setMe: (name: string) => void;
 }) {
-  const { board, dispatch, canUndo, canRedo, saved } = useBoard();
+  // Toolbar is only ever mounted for tree boards (App.tsx branches by board.kind).
+  const { board: rawBoard, dispatch, canUndo, canRedo, saved } = useBoard();
+  const board = rawBoard as TreeBoard;
   const { fitView } = useReactFlow();
   const fileRef = useRef<HTMLInputElement>(null);
   const excelRef = useRef<HTMLInputElement>(null);

@@ -1,12 +1,12 @@
 import Dagre from "@dagrejs/dagre";
-import { NODE_H, NODE_W, type Board, type ID } from "./types";
+import { NODE_H, NODE_W, type ID, type TreeBoard } from "./types";
 
 /**
  * Compute a tidy left-to-right tree layout for the given visible node ids.
  * Returns top-left positions keyed by id (React Flow uses top-left origin).
  */
 export function layoutVisible(
-  board: Board,
+  board: TreeBoard,
   visibleIds: ID[]
 ): Record<ID, { x: number; y: number }> {
   const g = new Dagre.graphlib.Graph();
@@ -43,7 +43,7 @@ const NODE_GAP = 28; // matches dagre nodesep
  * never overlaps neighbouring branches).
  */
 function enforceChildOrder(
-  board: Board,
+  board: TreeBoard,
   visible: Set<ID>,
   out: Record<ID, { x: number; y: number }>
 ) {

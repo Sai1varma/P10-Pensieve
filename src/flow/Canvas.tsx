@@ -22,7 +22,7 @@ import {
   visibleIds,
 } from "./deriveGraph";
 import { BlockNode, type BlockNodeData } from "./BlockNode";
-import type { Board, ViewFilter } from "../board/types";
+import type { TreeBoard, ViewFilter } from "../board/types";
 
 const nodeTypes: NodeTypes = { block: BlockNode };
 
@@ -31,11 +31,7 @@ interface View {
   isMatch: (id: string) => boolean;
 }
 
-function makeData(
-  board: ReturnType<typeof useBoard>["board"],
-  id: string,
-  view: View
-): BlockNodeData {
+function makeData(board: TreeBoard, id: string, view: View): BlockNodeData {
   const b = board.blocks[id];
   return {
     blockId: id,
@@ -61,8 +57,8 @@ function makeData(
  *  Bulk operations (expand all, add/delete, import, remote sync, etc.)
  *  naturally fail this check and fall back to the whole-tree fit. */
 function detectToggleFocus(
-  prev: Board | null,
-  board: Board
+  prev: TreeBoard | null,
+  board: TreeBoard
 ): { id: string; mode: "expand" | "collapse" } | null {
   if (!prev || prev.rootId !== board.rootId) return null;
   const prevIds = Object.keys(prev.blocks);
@@ -92,7 +88,9 @@ export function Canvas({
   query?: string;
   filter?: ViewFilter;
 }) {
-  const { board, dispatch } = useBoard();
+  // Canvas is only ever mounted for tree boards (App.tsx branches by board.kind).
+  const { board: rawBoard, dispatch } = useBoard();
+  const board = rawBoard as TreeBoard;
   const { fitView } = useReactFlow();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const lastSig = useRef<string | null>(null);
@@ -100,7 +98,7 @@ export function Canvas({
   // Previous board, used only to detect a single node's collapsed flag
   // flipping (a plain expand/collapse) so the camera can focus on just that
   // node's new context instead of always fitting the whole tree.
-  const prevBoardRef = useRef<Board | null>(null);
+  const prevBoardRef = useRef<TreeBoard | null>(null);
 
   // Search/filter matcher. `active` when any query or filter is set.
   const view: View = useMemo(() => {

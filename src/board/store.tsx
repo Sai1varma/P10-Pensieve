@@ -18,7 +18,12 @@ import {
   type Block,
   type Board,
   type BoardIndexEntry,
+  type BoardKind,
+  type Card,
   type ID,
+  type TemplateId,
+  type TreeBoard,
+  type WhiteboardBoard,
 } from "./types";
 
 // ---------- helpers ----------
@@ -46,7 +51,7 @@ function newNodeColor(blocks: Record<ID, Block>, parent: Block): string | null {
 }
 
 /** A small starter tree so the board isn't empty on first load. */
-export function seedBoard(): Board {
+export function seedBoard(): TreeBoard {
   const root = makeBlock(null, "Board", null);
   const blocks: Record<ID, Block> = { [root.id]: root };
 
@@ -74,7 +79,90 @@ export function seedBoard(): Board {
   blocks[cc.id].collapsed = true;
   blocks[a2.id].collapsed = true;
 
-  return { version: 3, rootId: root.id, blocks, members: [] };
+  return { version: 3, kind: "tree", rootId: root.id, blocks, members: [] };
+}
+
+/** Builds a board from a flat list of top-level categories (each optionally
+ *  with a few starter children), auto-assigning each category its own
+ *  generated color the same way manual category creation does. */
+function seedTree(rootText: string, categories: { text: string; children?: string[] }[]): TreeBoard {
+  const root = makeBlock(null, rootText, null);
+  const blocks: Record<ID, Block> = { [root.id]: root };
+
+  const mk = (parentId: ID, text: string, color: string | null): Block => {
+    const b = makeBlock(parentId, text, color);
+    blocks[b.id] = b;
+    blocks[parentId].childIds.push(b.id);
+    return b;
+  };
+
+  const used: (string | null)[] = [];
+  for (const cat of categories) {
+    const color = nextCategoryColor(used);
+    used.push(color);
+    const catBlock = mk(root.id, cat.text, color);
+    for (const childText of cat.children ?? []) mk(catBlock.id, childText, color);
+  }
+
+  return { version: 3, kind: "tree", rootId: root.id, blocks, members: [] };
+}
+
+/** Just a root node — for users who want to build their own structure. */
+export function seedBlank(): TreeBoard {
+  const root = makeBlock(null, "Board", null);
+  return { version: 3, kind: "tree", rootId: root.id, blocks: { [root.id]: root }, members: [] };
+}
+
+export function seedSWOT(): TreeBoard {
+  return seedTree("SWOT Analysis", [
+    { text: "Strengths" },
+    { text: "Weaknesses" },
+    { text: "Opportunities" },
+    { text: "Threats" },
+  ]);
+}
+
+export function seedFeatureBrainstorm(): TreeBoard {
+  return seedTree("Feature Brainstorm", [{ text: "Now" }, { text: "Next" }, { text: "Later" }]);
+}
+
+export function seedRetro(): TreeBoard {
+  return seedTree("Retro", [
+    { text: "What went well" },
+    { text: "What didn't go well" },
+    { text: "Action items" },
+  ]);
+}
+
+export function seedOKRTree(): TreeBoard {
+  return seedTree("OKR Tree", [
+    { text: "Objective 1", children: ["Key Result 1", "Key Result 2", "Key Result 3"] },
+    { text: "Objective 2", children: ["Key Result 1", "Key Result 2"] },
+  ]);
+}
+
+/** New-board template dispatch. Deliberately separate from `seedBoard()`
+ *  (the generic demo tree), which stays reserved for first-run / corrupt-data
+ *  recovery / "reset" — none of which should suddenly become a SWOT board. */
+export function seedForTemplate(id: TemplateId): TreeBoard {
+  switch (id) {
+    case "swot":
+      return seedSWOT();
+    case "feature":
+      return seedFeatureBrainstorm();
+    case "retro":
+      return seedRetro();
+    case "okr":
+      return seedOKRTree();
+    case "blank":
+    default:
+      return seedBlank();
+  }
+}
+
+/** Blank freeform whiteboard — no starter cards, no templates in v1. */
+export function seedWhiteboard(): WhiteboardBoard {
+  return { version: 3, kind: "whiteboard", cards: {}, members: [] };
 }
 
 /** Collect a node and all its descendants. */
@@ -112,14 +200,19 @@ function migrate(parsed: any): Board | null {
   if (b.version === 2 && b.blocks && b.rootId) {
     b = { ...b, version: 3 };
   }
+  // Legacy tree boards (pre-whiteboard-kind) never stored a `kind` field —
+  // normalize so every board flowing past this point is fully discriminated.
+  if (b.version === 3 && b.blocks && b.rootId && b.kind === undefined) {
+    b = { ...b, kind: "tree" };
+  }
   if (isValidBoard(b)) return b;
   return null;
 }
 
-export function isValidBoard(x: unknown): x is Board {
+function isValidTreeBoard(x: unknown): x is TreeBoard {
   if (!x || typeof x !== "object") return false;
-  const b = x as Partial<Board>;
-  if (b.version !== 3 || typeof b.rootId !== "string" || !b.blocks) return false;
+  const b = x as Partial<TreeBoard>;
+  if (b.version !== 3 || b.kind !== "tree" || typeof b.rootId !== "string" || !b.blocks) return false;
   const blocks = b.blocks as Record<string, unknown>;
   if (!blocks[b.rootId]) return false;
   return Object.values(blocks).every((blk) => {
@@ -133,6 +226,29 @@ export function isValidBoard(x: unknown): x is Board {
       Array.isArray(v.childIds)
     );
   });
+}
+
+function isValidWhiteboardBoard(x: unknown): x is WhiteboardBoard {
+  if (!x || typeof x !== "object") return false;
+  const b = x as Partial<WhiteboardBoard>;
+  if (b.version !== 3 || b.kind !== "whiteboard" || !b.cards || typeof b.cards !== "object") return false;
+  return Object.values(b.cards as Record<string, unknown>).every((crd) => {
+    const v = crd as Partial<Card>;
+    return (
+      v &&
+      typeof v.id === "string" &&
+      typeof v.x === "number" &&
+      typeof v.y === "number" &&
+      typeof v.width === "number" &&
+      typeof v.height === "number" &&
+      typeof v.text === "string" &&
+      (v.color === null || typeof v.color === "string")
+    );
+  });
+}
+
+export function isValidBoard(x: unknown): x is Board {
+  return isValidTreeBoard(x) || isValidWhiteboardBoard(x);
 }
 
 /** Accept v1/v2/v3 on import; returns a migrated v3 board or null. */
@@ -170,12 +286,13 @@ function freshBoardEntry(board: Board): { entry: BoardIndexEntry; id: ID } {
   localStorage.setItem(boardContentKey(id), JSON.stringify(board));
   const entry: BoardIndexEntry = {
     id,
-    name: board.blocks[board.rootId]?.text || "Board",
+    name: board.kind === "tree" ? board.blocks[board.rootId]?.text || "Board" : "Board",
     manualName: false,
     createdAt: now,
     updatedAt: now,
     cloudStatus: "local",
     ownerEmail: null,
+    kind: board.kind,
   };
   return { entry, id };
 }
@@ -224,7 +341,7 @@ function persistBoardContent(
     const i = idx.findIndex((e) => e.id === id);
     if (i === -1) return idx;
     const entry = idx[i];
-    const rootText = board.blocks[board.rootId]?.text || entry.name;
+    const rootText = board.kind === "tree" ? board.blocks[board.rootId]?.text || entry.name : entry.name;
     const next = [...idx];
     next[i] = {
       ...entry,
@@ -256,12 +373,19 @@ export type Action =
   | { type: "collapseToDepth"; depth: number }
   | { type: "moveNode"; id: ID; x: number; y: number }
   | { type: "setPositions"; positions: Record<ID, { x: number; y: number }> }
+  | { type: "addCard"; x: number; y: number }
+  | { type: "editCardText"; id: ID; text: string }
+  | { type: "patchCard"; id: ID; patch: Partial<Omit<Card, "id">> }
+  | { type: "moveCard"; id: ID; x: number; y: number }
+  | { type: "resizeCard"; id: ID; width: number; height: number }
+  | { type: "deleteCard"; id: ID }
+  | { type: "duplicateCard"; id: ID }
   | { type: "import"; board: Board }
   | { type: "reset" }
   | { type: "undo" }
   | { type: "redo" };
 
-function reducer(state: Board, action: Action): Board {
+function treeReducer(state: TreeBoard, action: Action): TreeBoard {
   switch (action.type) {
     case "addChild": {
       const parent = state.blocks[action.parentId];
@@ -451,21 +575,96 @@ function reducer(state: Board, action: Action): Board {
       return { ...state, blocks };
     }
 
-    case "import":
-      return action.board;
+    default:
+      return state;
+  }
+}
 
-    case "reset":
-      return seedBoard();
+function makeCard(x: number, y: number, color: string | null): Card {
+  return { id: uid(), x, y, width: 240, height: 160, text: "", color };
+}
+
+function whiteboardReducer(state: WhiteboardBoard, action: Action): WhiteboardBoard {
+  switch (action.type) {
+    case "addCard": {
+      const color = nextCategoryColor(Object.values(state.cards).map((c) => c.color));
+      const card = makeCard(action.x, action.y, color);
+      return { ...state, cards: { ...state.cards, [card.id]: card } };
+    }
+
+    case "editCardText": {
+      const c = state.cards[action.id];
+      if (!c) return state;
+      return { ...state, cards: { ...state.cards, [c.id]: { ...c, text: action.text } } };
+    }
+
+    case "patchCard": {
+      const c = state.cards[action.id];
+      if (!c) return state;
+      return { ...state, cards: { ...state.cards, [c.id]: { ...c, ...action.patch } } };
+    }
+
+    case "moveCard": {
+      const c = state.cards[action.id];
+      if (!c) return state;
+      return { ...state, cards: { ...state.cards, [c.id]: { ...c, x: action.x, y: action.y } } };
+    }
+
+    case "resizeCard": {
+      const c = state.cards[action.id];
+      if (!c) return state;
+      return {
+        ...state,
+        cards: { ...state.cards, [c.id]: { ...c, width: action.width, height: action.height } },
+      };
+    }
+
+    case "deleteCard": {
+      if (!state.cards[action.id]) return state;
+      const cards = { ...state.cards };
+      delete cards[action.id];
+      return { ...state, cards };
+    }
+
+    case "duplicateCard": {
+      const c = state.cards[action.id];
+      if (!c) return state;
+      const copy: Card = { ...c, id: uid(), x: c.x + 24, y: c.y + 24 };
+      return { ...state, cards: { ...state.cards, [copy.id]: copy } };
+    }
+
+    case "addMember": {
+      const name = action.name.trim();
+      if (!name) return state;
+      const members = state.members ?? [];
+      if (members.some((m) => m.name.toLowerCase() === name.toLowerCase())) return state;
+      const member = { id: uid(), name, color: nextCategoryColor(members.map((m) => m.color)) };
+      return { ...state, members: [...members, member] };
+    }
 
     default:
       return state;
   }
 }
 
+/** Top-level dispatch by board kind. `import`/`reset` are handled here (not
+ *  in either kind-specific reducer) because import can change the kind
+ *  itself — it must not be constrained to returning the current kind. */
+function reducer(state: Board, action: Action): Board {
+  if (action.type === "import") return action.board;
+  if (action.type === "reset") return state.kind === "whiteboard" ? seedWhiteboard() : seedBoard();
+  return state.kind === "whiteboard" ? whiteboardReducer(state, action) : treeReducer(state, action);
+}
+
 // ---------- undo/redo history ----------
 
 /** Layout-only actions must not create undo entries (they'd spam history). */
-const TRANSIENT: ReadonlySet<Action["type"]> = new Set(["setPositions", "moveNode"]);
+const TRANSIENT: ReadonlySet<Action["type"]> = new Set([
+  "setPositions",
+  "moveNode",
+  "moveCard",
+  "resizeCard",
+]);
 const HISTORY_CAP = 50;
 
 interface History {
@@ -528,7 +727,7 @@ interface Store {
 
   boards: BoardIndexEntry[];
   currentBoardId: ID;
-  createBoard: (name?: string) => ID;
+  createBoard: (name?: string, kind?: BoardKind, templateId?: TemplateId) => ID;
   switchBoard: (id: ID) => void;
   renameBoard: (id: ID, name: string) => void;
   duplicateBoard: (id: ID) => ID;
@@ -609,8 +808,9 @@ export function BoardProvider({ children }: { children: ReactNode }) {
     [currentBoardId, board]
   );
 
-  const createBoard = useCallback((name?: string): ID => {
-    const { entry, id } = freshBoardEntry(seedBoard());
+  const createBoard = useCallback((name?: string, kind: BoardKind = "tree", templateId?: TemplateId): ID => {
+    const seeded = kind === "whiteboard" ? seedWhiteboard() : seedForTemplate(templateId ?? "blank");
+    const { entry, id } = freshBoardEntry(seeded);
     const trimmed = name?.trim();
     const finalEntry = trimmed ? { ...entry, name: trimmed, manualName: true } : entry;
     setIndex((idx) => {

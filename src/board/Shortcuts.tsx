@@ -45,6 +45,9 @@ export function Shortcuts({
 
       if (isTyping() || mod) return;
       if (!focusedId) return;
+      // These shortcuts (Delete/Space) are tree-only; Shortcuts stays mounted
+      // for whiteboard boards too, so no-op there instead of reading .blocks.
+      if (board.kind !== "tree") return;
       const node = board.blocks[focusedId];
       if (!node) return;
 

@@ -16,7 +16,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useBoard } from "../board/store";
-import { STATUS_META, STATUS_ORDER, type Block, type ID, type Member } from "../board/types";
+import { STATUS_META, STATUS_ORDER, type Block, type ID, type Member, type TreeBoard } from "../board/types";
 import { ColorPalette } from "./ColorPalette";
 import type { Dispatch } from "react";
 import type { Action } from "../board/store";
@@ -41,7 +41,9 @@ export function SidePanel({
   onClose: () => void;
   me?: string;
 }) {
-  const { board, dispatch } = useBoard();
+  // SidePanel is only ever mounted for tree boards (App.tsx branches by board.kind).
+  const { board: rawBoard, dispatch } = useBoard();
+  const board = rawBoard as TreeBoard;
   const { fitView } = useReactFlow();
   const [editingId, setEditingId] = useState<ID | null>(null);
   const [draft, setDraft] = useState("");

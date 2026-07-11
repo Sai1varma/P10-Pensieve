@@ -14,6 +14,19 @@ export const STATUS_META: Record<Status, { label: string; color: string }> = {
 
 export const STATUS_ORDER: Status[] = ["idea", "exploring", "decided", "parked"];
 
+/** Starter structure offered when creating a new board. */
+export type TemplateId = "blank" | "swot" | "feature" | "retro" | "okr";
+
+export const TEMPLATE_META: Record<TemplateId, { label: string; description: string }> = {
+  blank: { label: "Blank", description: "Just a root node — start from nothing." },
+  swot: { label: "SWOT", description: "Strengths, Weaknesses, Opportunities, Threats." },
+  feature: { label: "Feature brainstorm", description: "Now / Next / Later." },
+  retro: { label: "Retro", description: "What went well, what didn't, action items." },
+  okr: { label: "OKR tree", description: "Objectives, each with their key results." },
+};
+
+export const TEMPLATE_ORDER: TemplateId[] = ["blank", "swot", "feature", "retro", "okr"];
+
 /** Active search/filter view state, shared by Toolbar and Canvas. */
 export interface ViewFilter {
   status?: Status;
@@ -39,12 +52,38 @@ export interface Block {
   votes?: number;
 }
 
-export interface Board {
+/** Which interaction model a board uses. Orthogonal to `version` (schema
+ *  generation) — this is content shape, not a migration step. */
+export type BoardKind = "tree" | "whiteboard";
+
+export interface TreeBoard {
   version: 3;
+  kind: "tree";
   rootId: ID;
   blocks: Record<ID, Block>;
   members?: Member[];
 }
+
+/** A freeform whiteboard card — no hierarchy, free position/size. */
+export interface Card {
+  id: ID;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  text: string;
+  color: string | null;
+  image?: string; // compressed data URL, client-local (see WhiteboardCanvas)
+}
+
+export interface WhiteboardBoard {
+  version: 3;
+  kind: "whiteboard";
+  cards: Record<ID, Card>;
+  members?: Member[];
+}
+
+export type Board = TreeBoard | WhiteboardBoard;
 
 /** A lightweight team member for Owner attribution (no login yet). */
 export interface Member {
@@ -95,6 +134,9 @@ export interface BoardIndexEntry {
   /** local = no cloud row; draft = cloud row with data IS NULL; live = data populated. */
   cloudStatus: "local" | "draft" | "live";
   ownerEmail: string | null;
+  /** Optional so pre-existing stored entries (all trees) keep parsing; treat
+   *  a missing value as "tree" wherever this is read. */
+  kind?: BoardKind;
 }
 
 /* ---------- generated color engine ----------

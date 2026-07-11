@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useReactFlow } from "@xyflow/react";
 import { useBoard } from "../board/store";
-import type { Board, ID } from "../board/types";
+import type { ID, TreeBoard } from "../board/types";
 
 type WalkMode = "depth" | "breadth";
 
@@ -14,7 +14,7 @@ interface Step {
  *  before its next sibling. Root itself is excluded -- presentation starts
  *  at the pillars. Order matches the canvas (top-to-bottom by y), not raw
  *  childIds order. */
-function buildDepthFirstSteps(board: Board): Step[] {
+function buildDepthFirstSteps(board: TreeBoard): Step[] {
   const steps: Step[] = [];
   const yOf = (id: ID) => board.blocks[id]?.y ?? Number.POSITIVE_INFINITY;
   const walk = (id: ID, depth: number) => {
@@ -46,7 +46,9 @@ function toBreadthFirst(depthFirstSteps: Step[]): Step[] {
  *  at one level before going deeper); a level selector jumps straight to a
  *  chosen depth. */
 export function Present({ onExit }: { onExit: () => void }) {
-  const { board, dispatch } = useBoard();
+  // Present is only ever mounted for tree boards (App.tsx branches by board.kind).
+  const { board: rawBoard, dispatch } = useBoard();
+  const board = rawBoard as TreeBoard;
   const { fitView } = useReactFlow();
   const [mode, setMode] = useState<WalkMode>("depth");
   const depthSteps = useMemo(() => buildDepthFirstSteps(board), [board]);

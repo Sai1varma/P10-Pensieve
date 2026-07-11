@@ -1,9 +1,9 @@
 import LZString from "lz-string";
 import { parseImported } from "./store";
-import { STATUS_META, type Board, type ID } from "./types";
+import { STATUS_META, type Board, type ID, type TreeBoard } from "./types";
 
 /** Render the board tree as an indented Markdown outline. */
-export function toMarkdown(board: Board): string {
+export function toMarkdown(board: TreeBoard): string {
   const root = board.blocks[board.rootId];
   if (!root) return "";
   const lines: string[] = [`# ${root.text}`, ""];

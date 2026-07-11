@@ -151,9 +151,10 @@ export function useCollab(): CollabState {
       return;
     }
     setStatus("connecting");
+    const name = board.kind === "tree" ? board.blocks[board.rootId]?.text ?? "Board" : "Board";
     const { data, error } = await sb
       .from("boards")
-      .insert({ name: board.blocks[board.rootId]?.text ?? "Board", data: board })
+      .insert({ name, data: board })
       .select("id")
       .single();
     if (error || !data) {

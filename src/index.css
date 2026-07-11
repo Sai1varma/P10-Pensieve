@@ -218,6 +218,41 @@ body {
   font-size: 12px;
   color: #ef4444;
 }
+.template-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.template-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+}
+.template-option:hover {
+  border-color: var(--accent);
+}
+.template-option[aria-checked="true"] {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+.template-option-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.template-option-desc {
+  font-size: 11.5px;
+  color: var(--muted);
+}
 .modal-close {
   position: absolute;
   top: 12px;
@@ -356,6 +391,17 @@ body {
 }
 .board-status-dot.live {
   background: #059669;
+}
+.board-kind-badge {
+  flex: none;
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--edge);
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .present-bar {

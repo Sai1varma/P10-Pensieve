@@ -1,7 +1,7 @@
 # Feature Spec: Multiple Boards + Navigation
 
-**Status:** Proposed (not yet implemented)
-**Effort:** ~half a day, low risk (mostly additive; no re-architecture)
+**Status:** Phase A implemented and live (local boards registry + switcher — create/switch/rename/duplicate/delete, each board with independent content and undo history). Phase B (cloud-synced board list) is **not started** — this is the prerequisite for feature-roadmap.md item #9 (org-wide template/board gallery).
+**Effort (Phase B):** ~2-3 days on top of Phase A, per the open questions below.
 
 ## Goal
 Let a user keep several independent boards and switch between them, instead of the single board the app holds today. Optionally have that list of boards follow the user across devices.
@@ -24,7 +24,7 @@ Let a user keep several independent boards and switch between them, instead of t
 
 ## Proposed approach
 
-### Phase A — Local boards registry + switcher (do first)
+### Phase A — Local boards registry + switcher (do first) ✅ Implemented
 Additive; no backend changes.
 
 **Data / persistence** (`src/board/store.tsx` or a new `src/board/boards.ts`)

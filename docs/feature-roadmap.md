@@ -83,4 +83,7 @@ Given People10 is repositioning as an **AI-first engineering partner**, using AI
 
 ## Suggested sequencing
 
-Start with **1–5** (all under a week combined, no new infrastructure, immediate visible value). Then **6–7** (biggest data-model gaps for real brainstorm use). Layer **9** onto the multi-board cloud work already in flight. Treat **8, 10, 11** as separate, larger initiatives to schedule once there's appetite for new backend surface area (Storage, an events table, and an LLM proxy respectively) — **11** in particular deserves its own scoping conversation given the `TBD` AI framework decision it depends on.
+~~Start with 1–5... Then 6–7... Layer 9 onto the multi-board cloud work...~~ — **1–8 and 10 are done** (2026-07-11); 3 and 10 needed a manual Supabase SQL step, which has been run. What's left:
+
+- **9. Org-wide template/board gallery** — blocked on Phase B of `multi-board-feature.md` (cloud-synced board list), which is not started. That phase has real open questions (owner column + RLS, whether local/cloud lists merge) — scope it via plan mode before writing code.
+- **11. AI-assisted brainstorming** — blocked on the org's AI framework/provider decision (`TBD` per `positioning.md`). Surface this to the user and get an explicit decision before implementing anything — do not pick a provider unilaterally.

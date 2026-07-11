@@ -88,23 +88,33 @@ Collaboration is off unless a Supabase project is configured. Local editing and 
      id uuid primary key default gen_random_uuid(),
      name text,
      data jsonb not null,
-     updated_at timestamptz not null default now()
+     updated_at timestamptz not null default now(),
+     owner_email text default (auth.jwt() ->> 'email'),
+     is_public boolean not null default false
    );
    alter table public.boards enable row level security;
-   create policy "auth read"   on public.boards for select to authenticated using (true);
-   create policy "auth insert" on public.boards for insert to authenticated with check (true);
-   create policy "auth update" on public.boards for update to authenticated using (true) with check (true);
+
+   -- Signed-in members of your domain can read/write any board -- the
+   -- collaboration model is org-wide, not per-board ownership. Replace
+   -- @yourdomain.com with your own.
+   create policy "p10 read"   on public.boards for select to authenticated using ((auth.jwt() ->> 'email') like '%@yourdomain.com');
+   create policy "p10 insert" on public.boards for insert to authenticated with check ((auth.jwt() ->> 'email') like '%@yourdomain.com');
+   create policy "p10 update" on public.boards for update to authenticated using ((auth.jwt() ->> 'email') like '%@yourdomain.com') with check ((auth.jwt() ->> 'email') like '%@yourdomain.com');
+   create policy "p10 delete" on public.boards for delete to authenticated using ((auth.jwt() ->> 'email') like '%@yourdomain.com');
+
+   -- Anonymous, unauthenticated visitors can still open a view-only
+   -- ?board=<id>&view=1 link (item 3) -- "you have the link" is the
+   -- security boundary there, same as a Google Docs share link. Deliberately
+   -- not gated by is_public, which is a separate, org-wide gallery-curation
+   -- flag (item 9), not a privacy boundary.
+   create policy "anon view" on public.boards for select to anon using (true);
+
    alter publication supabase_realtime add table public.boards;
    ```
-   To restrict to one email domain, replace `using (true)` (read) with
-   `using ((auth.jwt() ->> 'email') like '%@yourdomain.com')`.
-
-   For the cloud-synced board list (so a signed-in user's own boards follow
-   them across devices), add an owner column with a JWT-derived default so
-   the client never has to pass it explicitly on insert:
-   ```sql
-   alter table public.boards add column if not exists owner_email text default (auth.jwt() ->> 'email');
-   ```
+   `owner_email` powers the cloud-synced board list (a signed-in user's own
+   boards follow them across devices); `is_public` powers the org-wide
+   gallery -- publishing a board makes it browsable to every signed-in
+   member, not just those with the direct link.
 3. **Enable auth.** Authentication → Providers → enable **Email** (magic link). Under URL Configuration, set the Site URL and Redirect URLs to your Pages URL and `http://localhost:5173`.
 4. **Use it.** Sign in, click **Go live** to create a shared board, and share the resulting `?board=<id>` URL. Presence shows who's online.
 

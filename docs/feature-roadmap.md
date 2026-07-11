@@ -1,6 +1,6 @@
 # Feature Roadmap — P10 Pensieve
 
-**Status:** Items 1–8, 10 implemented (2026-07-11). 3 and 10 need a Supabase SQL change run manually before they're live (see commit messages / chat history for the exact SQL) — everything else is fully live. 9 and 11 are intentionally not started (see below). A "whiteboard" board kind (freeform cards, no hierarchy) also shipped this session — not originally on this roadmap, came out of a separate conversation about the tree-only data model.
+**Status:** Items 1–10 implemented and live (2026-07-11). All required Supabase SQL (item 3's view-only RLS, item 10's `board_events` table, item 9's `owner_email`/`is_public` columns + hardened domain-restricted RLS) has been run and confirmed. Only 11 remains, blocked on the org's still-TBD AI framework decision (see below). A "whiteboard" board kind (freeform cards, no hierarchy) also shipped this session — not originally on this roadmap, came out of a separate conversation about the tree-only data model.
 
 A PM-lens pass on what would give the most value to P10 Pensieve's actual users: senior People10 staff running brainstorms and reviews for the AI-first rebrand, working solo and live with colleagues, presenting to stakeholders. Ranked by value-for-effort, not just novelty.
 
@@ -54,11 +54,10 @@ Attach a screenshot or mockup image to a node.
 **Value:** Design/product brainstorms are often visual; a wall of text cards undersells ideas that are inherently visual.
 **Effort:** ~3–4 days as originally scoped (Supabase Storage). Actually implemented via the client-compressed-data-URL approach built for whiteboard cards instead — zero new infrastructure, rendered as a small corner thumbnail (not full-width) since the tree layout reserves a fixed height per node.
 
-### 9. Org-wide template/board gallery — not started, prerequisite now shipped
-Cloud sync of the board *list* (Phase B of multi-board-feature.md) is implemented — needs a one-line Supabase SQL change run to go live (see that doc / README). Once confirmed live, this item is unblocked.
+### 9. Org-wide template/board gallery ✅ Implemented
 A "Browse shared boards" view — publish a board as a reusable template or reference example visible to all signed-in `@people10.com` users, separate from your own private board list.
 **Value:** Compounds as the org uses this more — best practices and past brainstorms become reusable assets instead of one-off documents.
-**Effort:** ~2–3 days *on top of* the in-progress multi-board cloud sync — this is a natural extension of that work (an `is_template`/`is_public` flag on the same `boards` table + a gallery query), not a separate system.
+**Shipped as:** a single `is_public` flag on `boards` (no separate template/example distinction — that's just how a viewer chooses to use what they find) + `GalleryPanel`/`useGallery()`. Opening someone else's published board is always read-only (reuses item 3's view-only mode); "Duplicate to my boards" gets you an independent editable copy. Scoping this also surfaced and fixed two pre-existing RLS gaps: the `boards` table's `delete` policy wasn't domain-restricted like read/insert/update were (any authenticated Supabase user, any email, could delete any board), and there was no `anon`-role read policy at all, meaning item 3's anonymous view-only links likely returned nothing. Both fixed in the same SQL pass — see README's Supabase setup section for the current, correct policy set.
 
 ### 10. Change history / activity log ✅ Implemented — needs SQL run to go live
 A lightweight audit trail per board — who changed what, when (beyond the ephemeral local undo stack, which resets on reload and doesn't survive collaboration per the earlier bug fix).
@@ -83,7 +82,6 @@ Given People10 is repositioning as an **AI-first engineering partner**, using AI
 
 ## Suggested sequencing
 
-~~Start with 1–5... Then 6–7... Layer 9 onto the multi-board cloud work...~~ — **1–8 and 10 are done** (2026-07-11); 3 and 10 needed a manual Supabase SQL step, which has been run. What's left:
+~~Start with 1–5... Then 6–7... Layer 9 onto the multi-board cloud work...~~ — **1–10 are done** (2026-07-11); every required Supabase SQL step has been run. What's left:
 
-- **9. Org-wide template/board gallery** — Phase B of `multi-board-feature.md` (cloud-synced board list) is now implemented (needs its SQL run to go live). Layer an `is_template`/`is_public` flag + gallery query on top next.
 - **11. AI-assisted brainstorming** — blocked on the org's AI framework/provider decision (`TBD` per `positioning.md`). Surface this to the user and get an explicit decision before implementing anything — do not pick a provider unilaterally.

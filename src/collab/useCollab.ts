@@ -37,7 +37,7 @@ function boardIdFromUrl(): string | null {
  * when Supabase isn't configured; local editing never requires a login.
  */
 export function useCollab(focusedId: string | null = null, viewOnly = false): CollabState {
-  const { board, applyRemoteBoard } = useBoard();
+  const { board, currentBoardId, applyRemoteBoard, adoptRemoteBoard, markBoardCloudStatus } = useBoard();
   const [boardId, setBoardId] = useState<string | null>(boardIdFromUrl);
   const [session, setSession] = useState<Session | null>(null);
   const [status, setStatus] = useState<CollabStatus>(
@@ -80,7 +80,7 @@ export function useCollab(focusedId: string | null = null, viewOnly = false): Co
     (async () => {
       const { data, error } = await sb
         .from("boards")
-        .select("data, updated_at, name")
+        .select("data, updated_at, name, owner_email")
         .eq("id", boardId)
         .single();
       if (cancelled) return;
@@ -92,7 +92,20 @@ export function useCollab(focusedId: string | null = null, viewOnly = false): Co
       if (data?.data) {
         skipUpsertRef.current = true;
         lastRemoteRef.current = data.updated_at;
-        applyRemoteBoard(data.data as Board);
+        // view-only (anonymous) visitors never get a local index entry --
+        // just show the content. Everyone else adopts it: registers/updates
+        // the local board list entry for this id and makes it active, so it
+        // persists under its own id instead of overwriting whatever local
+        // board slot happened to be active.
+        if (viewOnly) {
+          applyRemoteBoard(data.data as Board);
+        } else {
+          adoptRemoteBoard(boardId, data.data as Board, {
+            name: data.name ?? "Board",
+            ownerEmail: data.owner_email ?? null,
+            updatedAt: data.updated_at,
+          });
+        }
       }
 
       const channel = sb
@@ -152,7 +165,7 @@ export function useCollab(focusedId: string | null = null, viewOnly = false): Co
         channelRef.current = null;
       }
     };
-  }, [boardId, session, viewOnly, applyRemoteBoard]);
+  }, [boardId, session, viewOnly, applyRemoteBoard, adoptRemoteBoard]);
 
   // Re-broadcast presence when the locally focused node changes, without
   // tearing down and reconnecting the whole channel.
@@ -211,9 +224,14 @@ export function useCollab(focusedId: string | null = null, viewOnly = false): Co
     }
     setStatus("connecting");
     const name = board.kind === "tree" ? board.blocks[board.rootId]?.text ?? "Board" : "Board";
+    // Reuse the local board's own id as the cloud row's id (it's already a
+    // real UUID -- see newBoardId() in types.ts) instead of letting Postgres
+    // generate a new one. Otherwise the two never match: markBoardCloudStatus
+    // below would have no correct id to target, and reopening this board's
+    // ?board= link later would register a second, duplicate local entry.
     const { data, error } = await sb
       .from("boards")
-      .insert({ name, data: board })
+      .insert({ id: currentBoardId, name, data: board })
       .select("id")
       .single();
     if (error || !data) {
@@ -226,13 +244,14 @@ export function useCollab(focusedId: string | null = null, viewOnly = false): Co
         () => {},
         () => {}
       );
+    markBoardCloudStatus(currentBoardId, "live", session.user.email ?? undefined);
     const url = new URL(location.href);
     url.searchParams.set("board", data.id);
     history.replaceState(null, "", url.toString());
     lastRemoteRef.current = null;
     skipUpsertRef.current = true; // we just created it from local state
     setBoardId(data.id);
-  }, [board, session]);
+  }, [board, session, currentBoardId, markBoardCloudStatus]);
 
   const leave = useCallback(() => {
     const url = new URL(location.href);

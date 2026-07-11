@@ -54,8 +54,8 @@ Attach a screenshot or mockup image to a node.
 **Value:** Design/product brainstorms are often visual; a wall of text cards undersells ideas that are inherently visual.
 **Effort:** ~3–4 days as originally scoped (Supabase Storage). Actually implemented via the client-compressed-data-URL approach built for whiteboard cards instead — zero new infrastructure, rendered as a small corner thumbnail (not full-width) since the tree layout reserves a fixed height per node.
 
-### 9. Org-wide template/board gallery — not started
-Deferred: depends on cloud sync of the board *list*, which is designed but not yet built (see multi-board-feature.md). Revisit once that's in place.
+### 9. Org-wide template/board gallery — not started, prerequisite now shipped
+Cloud sync of the board *list* (Phase B of multi-board-feature.md) is implemented — needs a one-line Supabase SQL change run to go live (see that doc / README). Once confirmed live, this item is unblocked.
 A "Browse shared boards" view — publish a board as a reusable template or reference example visible to all signed-in `@people10.com` users, separate from your own private board list.
 **Value:** Compounds as the org uses this more — best practices and past brainstorms become reusable assets instead of one-off documents.
 **Effort:** ~2–3 days *on top of* the in-progress multi-board cloud sync — this is a natural extension of that work (an `is_template`/`is_public` flag on the same `boards` table + a gallery query), not a separate system.
@@ -85,5 +85,5 @@ Given People10 is repositioning as an **AI-first engineering partner**, using AI
 
 ~~Start with 1–5... Then 6–7... Layer 9 onto the multi-board cloud work...~~ — **1–8 and 10 are done** (2026-07-11); 3 and 10 needed a manual Supabase SQL step, which has been run. What's left:
 
-- **9. Org-wide template/board gallery** — blocked on Phase B of `multi-board-feature.md` (cloud-synced board list), which is not started. That phase has real open questions (owner column + RLS, whether local/cloud lists merge) — scope it via plan mode before writing code.
+- **9. Org-wide template/board gallery** — Phase B of `multi-board-feature.md` (cloud-synced board list) is now implemented (needs its SQL run to go live). Layer an `is_template`/`is_public` flag + gallery query on top next.
 - **11. AI-assisted brainstorming** — blocked on the org's AI framework/provider decision (`TBD` per `positioning.md`). Surface this to the user and get an explicit decision before implementing anything — do not pick a provider unilaterally.

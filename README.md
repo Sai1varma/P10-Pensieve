@@ -98,6 +98,13 @@ Collaboration is off unless a Supabase project is configured. Local editing and 
    ```
    To restrict to one email domain, replace `using (true)` (read) with
    `using ((auth.jwt() ->> 'email') like '%@yourdomain.com')`.
+
+   For the cloud-synced board list (so a signed-in user's own boards follow
+   them across devices), add an owner column with a JWT-derived default so
+   the client never has to pass it explicitly on insert:
+   ```sql
+   alter table public.boards add column if not exists owner_email text default (auth.jwt() ->> 'email');
+   ```
 3. **Enable auth.** Authentication → Providers → enable **Email** (magic link). Under URL Configuration, set the Site URL and Redirect URLs to your Pages URL and `http://localhost:5173`.
 4. **Use it.** Sign in, click **Go live** to create a shared board, and share the resulting `?board=<id>` URL. Presence shows who's online.
 

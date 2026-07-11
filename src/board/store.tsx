@@ -814,6 +814,17 @@ interface Store {
    *  collaborator just typed rather than your own last edit, and could clobber
    *  their live changes if undone far enough. */
   applyRemoteBoard: (board: Board) => void;
+  /** For useCollab: the first successful connect to a shared board (by id).
+   *  Unlike applyRemoteBoard, this also registers/updates the local index
+   *  entry for `id` and makes it the active board -- so the board's content
+   *  persists under its own id instead of overwriting whatever local board
+   *  slot happened to be active, and the switcher can show/reopen it. Never
+   *  called for view-only (anonymous) sessions. */
+  adoptRemoteBoard: (
+    id: ID,
+    board: Board,
+    meta: { name: string; ownerEmail: string | null; updatedAt: string }
+  ) => void;
 }
 
 const BoardContext = createContext<Store | null>(null);
@@ -991,6 +1002,56 @@ export function BoardProvider({
     []
   );
 
+  const adoptRemoteBoard = useCallback(
+    (
+      id: ID,
+      remoteBoard: Board,
+      meta: { name: string; ownerEmail: string | null; updatedAt: string }
+    ) => {
+      // Flush any pending edits on the board we're navigating away from, same
+      // as switchBoard -- otherwise an unsaved local edit is silently lost.
+      if (id !== currentBoardId) {
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        if (dirtyRef.current) {
+          if (persistBoardContent(currentBoardId, board, setIndex)) dirtyRef.current = false;
+        }
+      }
+      setIndex((idx) => {
+        const i = idx.findIndex((e) => e.id === id);
+        const next =
+          i === -1
+            ? [
+                ...idx,
+                {
+                  id,
+                  name: meta.name,
+                  manualName: false,
+                  createdAt: meta.updatedAt,
+                  updatedAt: meta.updatedAt,
+                  cloudStatus: "live" as const,
+                  ownerEmail: meta.ownerEmail,
+                  kind: remoteBoard.kind,
+                },
+              ]
+            : idx.map((e) =>
+                e.id === id
+                  ? { ...e, cloudStatus: "live" as const, ownerEmail: meta.ownerEmail, updatedAt: meta.updatedAt }
+                  : e
+              );
+        persistIndex(next);
+        return next;
+      });
+      localStorage.setItem(ACTIVE_KEY, id);
+      // Mark this id as already-loaded before currentBoardId flips, so the
+      // swap-active-board effect (which loads from localStorage) doesn't
+      // race the direct dispatch below with a stale/seeded read.
+      loadedIdRef.current = id;
+      setCurrentBoardId(id);
+      dispatch({ type: "loadBoard", board: remoteBoard });
+    },
+    [currentBoardId, board]
+  );
+
   // Real `dispatch` above is what applyRemoteBoard uses to apply incoming
   // live-collab updates -- that must keep working in view-only mode. Only
   // the dispatch handed to UI components (below) is neutralized.
@@ -1015,6 +1076,7 @@ export function BoardProvider({
         setBoardsFromRemote,
         markBoardCloudStatus,
         applyRemoteBoard,
+        adoptRemoteBoard,
       }}
     >
       {children}

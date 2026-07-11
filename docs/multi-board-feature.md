@@ -1,7 +1,8 @@
 # Feature Spec: Multiple Boards + Navigation
 
-**Status:** Phase A implemented and live (local boards registry + switcher — create/switch/rename/duplicate/delete, each board with independent content and undo history). Phase B (cloud-synced board list) is **not started** — this is the prerequisite for feature-roadmap.md item #9 (org-wide template/board gallery).
-**Effort (Phase B):** ~2-3 days on top of Phase A, per the open questions below.
+**Status:** Phase A implemented and live (local boards registry + switcher — create/switch/rename/duplicate/delete, each board with independent content and undo history). Phase B (cloud-synced board list) is implemented — needs the `owner_email` SQL below run before it's live. Once confirmed live, feature-roadmap.md item #9 (org-wide template/board gallery) can build on top of it.
+
+Phase B shipped as: a `owner_email text default (auth.jwt() ->> 'email')` column on `boards` (see README's Supabase setup section for the exact SQL); a new `useBoardIndex` hook (`src/collab/useBoardIndex.ts`) that fetches the signed-in user's own boards and merges them into the *same* switcher list as local boards (open question 1 below resolved as: single merged list, no separate section); a fix to `goLive()` so the cloud row reuses the local board's own id instead of a server-generated one (previously the two never matched, so `markBoardCloudStatus` was dead code and the switcher's "live" dot never actually applied); and a new `adoptRemoteBoard` store method so opening a shared/cloud board registers it under its own id in the local index instead of silently overwriting whatever local board happened to be active. Opening a cloud board never loaded on the current device navigates via a full `?board=<id>` page load (open question 3 resolved as: reuse the existing shared-link bootstrap path rather than building a second in-app connect flow).
 
 ## Goal
 Let a user keep several independent boards and switch between them, instead of the single board the app holds today. Optionally have that list of boards follow the user across devices.

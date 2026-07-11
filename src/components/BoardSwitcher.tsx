@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useBoard } from "../board/store";
+import { useBoardIndex } from "../collab/useBoardIndex";
 import {
   TEMPLATE_META,
   TEMPLATE_ORDER,
+  boardContentKey,
   type BoardIndexEntry,
   type BoardKind,
   type ID,
@@ -30,10 +32,25 @@ const STATUS_LABEL: Record<BoardIndexEntry["cloudStatus"], string> = {
 export function BoardSwitcher() {
   const { boards, currentBoardId, switchBoard, createBoard, renameBoard, duplicateBoard, deleteBoard } =
     useBoard();
+  const { refresh: refreshCloudBoards } = useBoardIndex();
   const current = boards.find((b) => b.id === currentBoardId);
   const [open, setOpen] = useState(false);
   const [modal, setModal] = useState<ModalState>(null);
   const ref = useRef<HTMLDivElement>(null);
+
+  // Cloud boards never opened on this device have no ?board= session yet --
+  // route those through a full page load (reuses the exact bootstrap path
+  // shared links already use) instead of the fast in-app switchBoard, which
+  // reads local storage only and would silently show an empty seeded board.
+  const openBoard = (b: BoardIndexEntry) => {
+    if (b.cloudStatus !== "local" && !localStorage.getItem(boardContentKey(b.id))) {
+      const url = new URL(location.href);
+      url.searchParams.set("board", b.id);
+      location.assign(url.toString());
+      return;
+    }
+    switchBoard(b.id);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -49,7 +66,16 @@ export function BoardSwitcher() {
   return (
     <>
       <div className="menu board-switcher" ref={ref}>
-        <button className="tbtn" onClick={() => setOpen((o) => !o)} title="Switch boards">
+        <button
+          className="tbtn"
+          onClick={() =>
+            setOpen((o) => {
+              if (!o) refreshCloudBoards();
+              return !o;
+            })
+          }
+          title="Switch boards"
+        >
           {current?.name ?? "Board"} ▾
         </button>
         {open && (
@@ -59,7 +85,7 @@ export function BoardSwitcher() {
                 <button
                   className="board-row-name"
                   onClick={() => {
-                    switchBoard(b.id);
+                    openBoard(b);
                     setOpen(false);
                   }}
                   title={STATUS_LABEL[b.cloudStatus]}

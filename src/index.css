@@ -804,7 +804,6 @@ body {
   border: 1px solid var(--edge);
   border-radius: var(--radius);
   box-shadow: var(--node-shadow);
-  overflow: hidden;
   transition: box-shadow 0.15s, filter 0.15s;
 }
 .wb-card:hover {
@@ -820,6 +819,9 @@ body {
   max-height: 55%;
   object-fit: cover;
   flex: none;
+  /* .wb-card itself no longer clips (that broke the color popover below) --
+     round just the image's own top corners to match the card. */
+  border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0;
 }
 .wb-card-body {
   flex: 1;
@@ -854,8 +856,8 @@ body {
 }
 .wb-card-actions {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  bottom: calc(100% + 6px);
+  right: 0;
   display: flex;
   gap: 2px;
   padding: 4px;

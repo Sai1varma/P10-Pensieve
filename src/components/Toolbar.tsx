@@ -6,6 +6,7 @@ import { exportJson as exportJsonShared, importJsonFile, exportPng as exportPngS
 import { STATUS_META, STATUS_ORDER, type Theme, type TreeBoard, type ViewFilter } from "../board/types";
 import { BoardSwitcher } from "./BoardSwitcher";
 import { InsightsPanel } from "./InsightsPanel";
+import { SettingsPanel } from "./SettingsPanel";
 
 export function Toolbar({
   theme,
@@ -102,6 +103,7 @@ export function Toolbar({
   const filterActive = !!filter.status || !!filter.tag;
   const [menuOpen, setMenuOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close the More menu on any click/tap outside it.
@@ -236,6 +238,16 @@ export function Toolbar({
             </button>
             <div className="menu-sep" />
             <button
+              className="menu-item"
+              onClick={() => {
+                setSettingsOpen(true);
+                setMenuOpen(false);
+              }}
+            >
+              ⚙ Settings
+            </button>
+            <div className="menu-sep" />
+            <button
               className="menu-item danger"
               onClick={() => {
                 if (confirm("Reset the board to the starter tree?")) dispatch({ type: "reset" });
@@ -270,6 +282,7 @@ export function Toolbar({
         }}
       />
       {insightsOpen && <InsightsPanel onClose={() => setInsightsOpen(false)} />}
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
     </header>
   );
 }

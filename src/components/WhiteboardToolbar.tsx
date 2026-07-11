@@ -3,6 +3,7 @@ import { useBoard } from "../board/store";
 import { exportJson, importJsonFile, exportPng, copyShareLink } from "../board/exportShared";
 import type { Theme, WhiteboardBoard } from "../board/types";
 import { BoardSwitcher } from "./BoardSwitcher";
+import { SettingsPanel } from "./SettingsPanel";
 
 export function WhiteboardToolbar({
   theme,
@@ -38,6 +39,7 @@ export function WhiteboardToolbar({
   };
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -134,6 +136,16 @@ export function WhiteboardToolbar({
             </button>
             <div className="menu-sep" />
             <button
+              className="menu-item"
+              onClick={() => {
+                setSettingsOpen(true);
+                setMenuOpen(false);
+              }}
+            >
+              ⚙ Settings
+            </button>
+            <div className="menu-sep" />
+            <button
               className="menu-item danger"
               onClick={() => {
                 if (confirm("Reset the board to blank?")) dispatch({ type: "reset" });
@@ -156,6 +168,7 @@ export function WhiteboardToolbar({
           e.target.value = "";
         }}
       />
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
     </header>
   );
 }

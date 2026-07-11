@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useReactFlow } from "@xyflow/react";
 import { useBoard } from "../board/store";
+import { loadSettings } from "../board/settings";
 import type { ID, TreeBoard } from "../board/types";
 
 type WalkMode = "depth" | "breadth";
@@ -50,7 +51,9 @@ export function Present({ onExit }: { onExit: () => void }) {
   const { board: rawBoard, dispatch } = useBoard();
   const board = rawBoard as TreeBoard;
   const { fitView } = useReactFlow();
-  const [mode, setMode] = useState<WalkMode>("depth");
+  // Starts from Settings' saved default; the in-bar toggle below only
+  // changes it for this presentation, it doesn't rewrite the default.
+  const [mode, setMode] = useState<WalkMode>(() => loadSettings().presentMode);
   const depthSteps = useMemo(() => buildDepthFirstSteps(board), [board]);
   const steps = useMemo(
     () => (mode === "depth" ? depthSteps : toBreadthFirst(depthSteps)),
@@ -134,15 +137,17 @@ export function Present({ onExit }: { onExit: () => void }) {
       <button className="tbtn" onClick={() => go(1)} disabled={i >= steps.length - 1}>
         Next ›
       </button>
-      <select
-        className="filter-select"
-        value={mode}
-        title="Depth-first drills into each branch fully before the next pillar; breadth-first shows a whole level before going deeper"
-        onChange={(e) => setMode(e.target.value as WalkMode)}
+      <button
+        className="tbtn"
+        title={
+          mode === "depth"
+            ? "Depth-first: drills into each branch fully before the next pillar. Click for breadth-first."
+            : "Breadth-first: shows a whole level before going deeper. Click for depth-first."
+        }
+        onClick={() => setMode((m) => (m === "depth" ? "breadth" : "depth"))}
       >
-        <option value="depth">Depth-first</option>
-        <option value="breadth">Breadth-first</option>
-      </select>
+        {mode === "depth" ? "⇊" : "≡"}
+      </button>
       {maxDepth > 1 && (
         <select
           className="filter-select"

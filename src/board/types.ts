@@ -65,6 +65,8 @@ export interface Block {
   relatedIds?: ID[];
   /** Async discussion thread, separate from the single `note` field. */
   comments?: Comment[];
+  /** Compressed data URL, same storage medium as whiteboard card images. */
+  image?: string;
 }
 
 /** Which interaction model a board uses. Orthogonal to `version` (schema

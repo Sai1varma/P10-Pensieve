@@ -55,6 +55,7 @@ function makeData(
     hasNote: !!(b.note && b.note.trim()),
     commentCount: b.comments?.length ?? 0,
     relatedCount: b.relatedIds?.length ?? 0,
+    image: b.image,
     match: view.active && view.isMatch(id),
     dim: view.active && !view.isMatch(id),
     peerNames: focusByNode[id] ?? [],

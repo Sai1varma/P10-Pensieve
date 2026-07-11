@@ -3,6 +3,7 @@ import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { useBoard } from "../board/store";
 import { contrastText, STATUS_META, type Status } from "../board/types";
 import { ColorPalette } from "../components/ColorPalette";
+import { compressImage, MAX_IMAGE_SOURCE_BYTES } from "../board/imageUtils";
 
 export interface BlockNodeData {
   blockId: string;
@@ -20,6 +21,10 @@ export interface BlockNodeData {
   commentCount: number;
   /** Number of non-hierarchical "relates to" links this node has. */
   relatedCount: number;
+  /** Compressed data URL -- small corner thumbnail, not a full-width hero
+   *  (the tree layout reserves a fixed height per node; a large image would
+   *  overlap neighboring nodes since Dagre doesn't measure content height). */
+  image?: string;
   match?: boolean;
   dim?: boolean;
   /** Names of other live-collab peers who currently have this node open. */
@@ -37,6 +42,7 @@ function BlockNodeImpl({ data, selected }: NodeProps) {
   const [draft, setDraft] = useState(d.text);
   const [showPalette, setShowPalette] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => setDraft(d.text), [d.text]);
   useEffect(() => {
@@ -53,6 +59,22 @@ function BlockNodeImpl({ data, selected }: NodeProps) {
   const commit = () => {
     dispatch({ type: "editText", id: d.blockId, text: draft.trim() || "Untitled" });
     setEditing(false);
+  };
+
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > MAX_IMAGE_SOURCE_BYTES) {
+      alert("That image is too large (max 8MB).");
+      return;
+    }
+    try {
+      const image = await compressImage(file);
+      dispatch({ type: "patchBlock", id: d.blockId, patch: { image } });
+    } catch {
+      alert("Could not read that image.");
+    }
   };
 
   return (
@@ -73,6 +95,21 @@ function BlockNodeImpl({ data, selected }: NodeProps) {
             .map((n) => n.trim()[0]?.toUpperCase() || "?")
             .join("")}
           {d.peerNames.length > 3 ? "+" : ""}
+        </div>
+      )}
+
+      {d.image && (
+        <div className="node-image-wrap nodrag">
+          <img className="node-image" src={d.image} alt="" draggable={false} />
+          {!viewOnly && (
+            <button
+              className="node-image-remove"
+              title="Remove image"
+              onClick={() => dispatch({ type: "patchBlock", id: d.blockId, patch: { image: undefined } })}
+            >
+              ×
+            </button>
+          )}
         </div>
       )}
 
@@ -177,6 +214,13 @@ function BlockNodeImpl({ data, selected }: NodeProps) {
           >
             ↔
           </button>
+          <button
+            className="node-btn"
+            title={d.image ? "Replace image" : "Add image"}
+            onClick={() => fileRef.current?.click()}
+          >
+            🖼
+          </button>
           {!d.isRoot && (
             <button
               className="node-btn"
@@ -246,6 +290,10 @@ function BlockNodeImpl({ data, selected }: NodeProps) {
       )}
 
       <Handle type="source" position={Position.Right} className="handle" />
+
+      {!viewOnly && (
+        <input ref={fileRef} type="file" accept="image/*" hidden className="nodrag" onChange={onFileChange} />
+      )}
     </div>
   );
 }

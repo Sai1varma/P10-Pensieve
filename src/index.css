@@ -700,6 +700,45 @@ body {
   color: var(--text);
 }
 
+/* image attachment thumbnail (small by design -- Dagre reserves a fixed
+   height per node, so a large inline image would overlap the row below) */
+.node-image-wrap {
+  position: absolute;
+  right: -8px;
+  bottom: -8px;
+  z-index: 3;
+}
+.node-image {
+  display: block;
+  width: 34px;
+  height: 34px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid var(--bg);
+  box-shadow: var(--node-shadow);
+}
+.node-image-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+  display: grid;
+  place-items: center;
+}
+.node:hover .node-image-remove {
+  opacity: 1;
+}
+
 /* live-collab presence: who else has this node open */
 .peer-badge {
   position: absolute;

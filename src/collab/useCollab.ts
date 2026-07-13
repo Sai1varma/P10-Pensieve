@@ -166,7 +166,15 @@ export function useCollab(focusedId: string | null = null, viewOnly = false): Co
         channelRef.current = null;
       }
     };
-  }, [boardId, session, viewOnly, applyRemoteBoard, adoptRemoteBoard]);
+    // applyRemoteBoard/adoptRemoteBoard deliberately excluded: adoptRemoteBoard's
+    // identity changes on every board edit (it closes over `board` for its
+    // flush-before-switch logic), and this effect calls it -- including it here
+    // would reconnect (tear down + rebuild the realtime channel, refetch, and
+    // re-adopt) on every single edit, which itself changes `board` again: an
+    // infinite reconnect loop. Only boardId/session/viewOnly should ever
+    // trigger a reconnect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boardId, session, viewOnly]);
 
   // Re-broadcast presence when the locally focused node changes, without
   // tearing down and reconnecting the whole channel.

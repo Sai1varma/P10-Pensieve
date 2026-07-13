@@ -450,21 +450,22 @@ body {
 }
 .collab-bar {
   position: absolute;
-  right: 16px;
-  bottom: 16px;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 25;
   display: flex;
   align-items: center;
   gap: 8px;
-  /* Bottom-right is the one corner nothing else claims: top-right is the
-     canvas's fit/tidy/levels Panel, bottom-left is React Flow's zoom
-     Controls, bottom-center is Present mode's bar. Present mode's z-index
-     (30) still wins over this (25) if a narrow viewport ever brings them
-     close, which is the right priority while presenting. Previously
-     top-left, which overlapped the board switcher's dropdown. */
+  /* Top-center is the one slot nothing else claims, in either board kind:
+     top-left is the toolbar/board-switcher dropdown, top-right is the
+     canvas's fit/tidy/levels (or add-card) Panel, bottom-left is React
+     Flow's zoom Controls, bottom-right is the MiniMap, bottom-center is
+     Present mode's bar. Tried bottom-right first -- missed that MiniMap
+     already defaults there. */
   flex-wrap: wrap;
-  justify-content: flex-end;
-  max-width: min(360px, 60vw);
+  justify-content: center;
+  max-width: min(480px, 90vw);
 }
 .collab-chip {
   display: inline-flex;

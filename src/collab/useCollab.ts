@@ -238,9 +238,14 @@ export function useCollab(focusedId: string | null = null, viewOnly = false): Co
     // generate a new one. Otherwise the two never match: markBoardCloudStatus
     // below would have no correct id to target, and reopening this board's
     // ?board= link later would register a second, duplicate local entry.
+    // upsert (not insert): a row can already exist under this id from an
+    // earlier attempt (e.g. a prior Go Live that succeeded server-side just
+    // before the client hit an error) -- a plain insert 409s on the primary
+    // key in that case. Taking over the existing row with the current local
+    // content is the right outcome either way.
     const { data, error } = await sb
       .from("boards")
-      .insert({ id: currentBoardId, name, data: board })
+      .upsert({ id: currentBoardId, name, data: board }, { onConflict: "id" })
       .select("id")
       .single();
     if (error || !data) {
